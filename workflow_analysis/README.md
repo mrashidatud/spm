@@ -21,7 +21,13 @@ workflow_analysis/
 │   ├── workflow_visualization.py     # Visualization and reporting
 │   ├── workflow_data_staging.py      # Data staging operations
 │   ├── workflow_results_exporter.py  # Results export utilities
+│   ├── workflow_template_generator.py # 🆕 Template workflow generator
 │   └── __init__.py                   # Module initialization
+├── template_workflow/                 # 🆕 Template workflow for testing
+│   ├── template_script_order.json    # Template workflow configuration
+│   └── template_run/                 # Template workflow data
+│       ├── workflow_data.csv         # Artificial workflow data
+│       └── *.txt, *.dat, *.out      # Example files
 ├── python_tests/                     # Comprehensive test suite
 │   ├── README.md                     # Test documentation
 │   ├── test_simple_workflow.py       # Basic workflow loading test
@@ -76,6 +82,11 @@ workflow_analysis/
 
 7. **`workflow_results_exporter.py`** - Results export utilities
    - Functions to export analysis results to various formats
+
+8. **`workflow_template_generator.py`** - Template workflow generator
+   - Functions to generate artificial workflow data for testing and development
+   - API for creating custom template workflows
+   - Support for configurable parameters (nodes, file sizes, timing)
 
 ### Test Suite (in `python_tests/` directory)
 
@@ -176,16 +187,185 @@ plot_all_visualizations(wf_df, spm_results, io_breakdown)
 
 The system supports analysis of multiple workflows:
 
-- `ddmd_2n_s` - DDMD workflow (small data, 2 nodes)
+
 - `ddmd_4n_l` - DDMD workflow (large data, 4 nodes)
 - `1kg` - 1K Genome workflow
-- `1kg_2` - 1K Genome workflow (alternative)
-- `pyflex_240f` - PyFlex workflow (240 files)
 - `pyflex_s9_48f` - PyFlex workflow (S9, 48 files)
 - `ptychonn` - PtychoNN workflow
 - `montage` - Montage workflow
 - `seismology` - Seismology workflow
 - `llm_wf` - LLM workflow
+- `template_workflow` - 🆕 **Template workflow for testing and examples**
+
+## Template Workflow and API
+
+### 🆕 Template Workflow
+
+The system includes a template workflow (`template_workflow`) that demonstrates a simple producer-consumer relationship:
+
+- **task1**: Reads from initial data files and writes output files
+- **task2**: Reads from task1 output files and writes final results
+
+This template is useful for:
+- Testing the analysis pipeline
+- Understanding the workflow structure
+- Creating examples for demonstrations
+- Learning how to set up new workflows
+
+### Using the Template Workflow
+
+```bash
+# Analyze the template workflow
+python3 workflow_analysis_main.py --workflow template_workflow --no-save
+
+# This will:
+# 1. Load the template workflow data
+# 2. Calculate I/O time breakdown
+# 3. Estimate transfer rates
+# 4. Calculate SPM values
+# 5. Display results
+```
+
+### Template Workflow Structure
+
+```
+template_workflow/
+├── template_script_order.json    # Workflow configuration
+└── template_run/
+    ├── workflow_data.csv         # Artificial workflow data
+    ├── input_data_*.txt         # Example input files
+    ├── task1_output_*.dat       # Example task1 output files
+    └── final_result_*.out       # Example final output files
+```
+
+### Template Script Order Configuration
+
+```json
+{
+    "task1": {
+        "stage_order": 0,
+        "parallelism": 4,
+        "num_tasks": 4,
+        "predecessors": {
+            "initial_data": {
+                "inputs": ["input_data_\\d+\\.txt"]
+            }
+        },
+        "outputs": [
+            "task1_output_\\d+\\.dat",
+            "task1_results_\\d+\\.json"
+        ]
+    },
+    "task2": {
+        "stage_order": 1,
+        "parallelism": 2,
+        "num_tasks": 2,
+        "predecessors": {
+            "task1": {
+                "inputs": ["task1_output_\\d+\\.dat"]
+            }
+        },
+        "outputs": [
+            "final_result_\\d+\\.out",
+            "summary_\\d+\\.txt"
+        ]
+    }
+}
+```
+
+### 🆕 Template Generator API
+
+The system includes a template generator API for creating artificial workflow data for testing and development:
+
+#### Basic Usage
+
+```python
+from modules.workflow_template_generator import generate_complete_template
+
+# Generate a complete template workflow
+result = generate_complete_template(
+    workflow_name="my_test_workflow",
+    debug=True
+)
+
+print(f"Template created at: {result['data_dir']}")
+```
+
+#### Advanced Usage
+
+```python
+from modules.workflow_template_generator import (
+    generate_template_workflow_data,
+    create_template_workflow_structure,
+    add_workflow_to_config
+)
+
+# Generate custom workflow data
+wf_df = generate_template_workflow_data(
+    workflow_name="custom_workflow",
+    num_nodes=8,
+    base_file_size_mb=200.0,
+    time_variance=0.3,
+    debug=True
+)
+
+# Create workflow structure
+script_order_path, data_dir = create_template_workflow_structure(
+    workflow_name="custom_workflow",
+    output_dir="./custom_workflow",
+    debug=True
+)
+
+# Add to configuration
+add_workflow_to_config("custom_workflow")
+```
+
+#### Template Generator Parameters
+
+- `workflow_name`: Name of the workflow (default: "template_workflow")
+- `num_nodes`: Number of nodes to simulate (default: 4)
+- `base_file_size_mb`: Base file size in MB (default: 100.0)
+- `time_variance`: Variance in timing (0.0 to 1.0, default: 0.2)
+- `debug`: Enable debug output (default: False)
+
+#### Creating Custom Templates
+
+1. **Define your workflow structure** in a script order JSON file
+2. **Generate artificial data** using the template generator
+3. **Add to configuration** using `add_workflow_to_config()`
+4. **Test your workflow** using the analysis pipeline
+
+Example custom workflow:
+
+```python
+# Create a custom workflow with different parameters
+result = generate_complete_template(
+    workflow_name="my_custom_workflow",
+    debug=True
+)
+
+# The generator will:
+# 1. Create the directory structure
+# 2. Generate artificial workflow data
+# 3. Create example files
+# 4. Add the workflow to the configuration
+# 5. Return paths to all created files
+```
+
+#### Template Data Format
+
+The generated `workflow_data.csv` includes all required columns:
+
+- `operation`: 0 (write) or 1 (read)
+- `taskName`: Name of the task (e.g., "task1", "task2")
+- `fileName`: Name of the file being processed
+- `stageOrder`: Execution order (0, 1, 2, etc.)
+- `prevTask`: Previous task name
+- `parallelism`: Number of parallel tasks
+- `aggregateFilesizeMB`: File size in MB
+- `totalTime`: Processing time in seconds
+- `trMiB`: Transfer rate in MB/s
+- And all other required columns from `WF_PARAMS`
 
 ## Configuration
 
