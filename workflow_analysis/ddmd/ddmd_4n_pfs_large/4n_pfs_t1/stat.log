@@ -1,0 +1,4 @@
+stage1,121490,base_nfs,4nodes,small
+stage2,11840,base_nfs,4nodes,small
+stage3,133086,base_nfs,4nodes,small
+stage2,53200,base_nfs,4nodes,small
