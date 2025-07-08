@@ -12,6 +12,18 @@ This document tracks the current issues and planned improvements for the workflo
 - [ ] Implement custom filter logic for each workflow to select the optimal storage selection plan.
 - [ ] Allow per-workflow customization in storage selection and filtering.
 
+### 3. Fix `workflow_analysis_main.py` to ensure SPM ranking and output matches the notebook (add ranking step after SPM calculation)
+- [ ] Implement the fix
+- [ ] Verify the fix resolves the issue
+- [ ] Add regression tests to prevent future issues
+- [ ] Update documentation
+
+### 4. Fix the API to add template workflows (enable adding template workflows via the main analysis interface)
+- [ ] Implement the fix
+- [ ] Verify the fix resolves the issue
+- [ ] Add regression tests to prevent future issues
+- [ ] Update documentation
+
 ---
 
 ## Testing Strategy
