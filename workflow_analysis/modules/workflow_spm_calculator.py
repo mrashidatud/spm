@@ -252,7 +252,7 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
 
     if producer_df.empty or consumer_df.empty:
         if debug:
-            print("ERROR: No producers or consumers found!")
+        print("ERROR: No producers or consumers found!")
         return
 
     # Step 3: Find potential producer-consumer pairs
@@ -535,12 +535,12 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                     for prod_storage in all_prod_storages:
                         for cons_storage in all_cons_storages:
                             # Find all producer and consumer keys for these storage types
-                            prod_keys = [
-                                key for key in prod_node_data.keys()
+                        prod_keys = [
+                            key for key in prod_node_data.keys()
                                 if key.startswith(f'estimated_trMiB_{prod_storage}_')
-                            ]
-                            cons_keys = [
-                                key for key in cons_node_data.keys()
+                        ]
+                        cons_keys = [
+                            key for key in cons_node_data.keys()
                                 if key.startswith(f'estimated_trMiB_{cons_storage}_')
                             ]
                             
@@ -558,64 +558,64 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                 if prod_storage != cons_storage:
                                     continue
                             
-                            for prod_key in prod_keys:
+                        for prod_key in prod_keys:
+                            try:
+                                n_prod = prod_key.split('_')[-1]  # e.g., '1p', '24p'
+                            except Exception:
+                                continue
+                            prod_estimated_trMiB = prod_node_data.get(prod_key)
+                                prod_slope_key = f"estimated_ts_slope_{prod_storage}_{n_prod}"
+                            prod_ts_slope = prod_node_data.get(prod_slope_key)
+                            if prod_estimated_trMiB is None or (isinstance(prod_estimated_trMiB, float) and math.isnan(prod_estimated_trMiB)):
+                                continue
+                            if prod_ts_slope is None or (isinstance(prod_ts_slope, float) and math.isnan(prod_ts_slope)):
+                                continue
+                            for cons_key in cons_keys:
                                 try:
-                                    n_prod = prod_key.split('_')[-1]  # e.g., '1p', '24p'
+                                    n_cons = cons_key.split('_')[-1]  # e.g., '1p', '24p'
                                 except Exception:
                                     continue
-                                prod_estimated_trMiB = prod_node_data.get(prod_key)
-                                prod_slope_key = f"estimated_ts_slope_{prod_storage}_{n_prod}"
-                                prod_ts_slope = prod_node_data.get(prod_slope_key)
-                                if prod_estimated_trMiB is None or (isinstance(prod_estimated_trMiB, float) and math.isnan(prod_estimated_trMiB)):
-                                    continue
-                                if prod_ts_slope is None or (isinstance(prod_ts_slope, float) and math.isnan(prod_ts_slope)):
-                                    continue
-                                for cons_key in cons_keys:
-                                    try:
-                                        n_cons = cons_key.split('_')[-1]  # e.g., '1p', '24p'
-                                    except Exception:
-                                        continue
-                                    cons_estimated_trMiB = cons_node_data.get(cons_key)
+                                cons_estimated_trMiB = cons_node_data.get(cons_key)
                                     cons_slope_key = f"estimated_ts_slope_{cons_storage}_{n_cons}"
-                                    cons_ts_slope = cons_node_data.get(cons_slope_key)
-                                    if cons_estimated_trMiB is None or (isinstance(cons_estimated_trMiB, float) and math.isnan(cons_estimated_trMiB)):
-                                        continue
-                                    if cons_ts_slope is None or (isinstance(cons_ts_slope, float) and math.isnan(cons_ts_slope)):
-                                        continue
-                                    prod_aggregateFilesizeMB = producer_row['aggregateFilesizeMB']
-                                    cons_aggregateFilesizeMB = consumer_row['aggregateFilesizeMB']
-                                    prod_opCount = producer_row['opCount']
-                                    cons_opCount = consumer_row['opCount']
+                                cons_ts_slope = cons_node_data.get(cons_slope_key)
+                                if cons_estimated_trMiB is None or (isinstance(cons_estimated_trMiB, float) and math.isnan(cons_estimated_trMiB)):
+                                    continue
+                                if cons_ts_slope is None or (isinstance(cons_ts_slope, float) and math.isnan(cons_ts_slope)):
+                                    continue
+                                prod_aggregateFilesizeMB = producer_row['aggregateFilesizeMB']
+                                cons_aggregateFilesizeMB = consumer_row['aggregateFilesizeMB']
+                                prod_opCount = producer_row['opCount']
+                                cons_opCount = consumer_row['opCount']
                                     
-                                    # For cp/scp, allow cross-storage matching
-                                    allow_cross = False
-                                    if prod_op in [2, 3, 'cp', 'scp'] or cons_op in [2, 3, 'cp', 'scp']:
+                                # For cp/scp, allow cross-storage matching
+                                allow_cross = False
+                                if prod_op in [2, 3, 'cp', 'scp'] or cons_op in [2, 3, 'cp', 'scp']:
                                         if is_valid_storage_match(prod_storage, cons_storage, prod_task_name, consumer_row['taskName']):
-                                            allow_cross = True
-                                    # For non-cp/scp, require exact match
-                                    if (prod_op in [2, 3, 'cp', 'scp'] or cons_op in [2, 3, 'cp', 'scp']):
-                                        if not allow_cross:
-                                            continue
-                                    else:
-                                        # Strict match
+                                        allow_cross = True
+                                # For non-cp/scp, require exact match
+                                if (prod_op in [2, 3, 'cp', 'scp'] or cons_op in [2, 3, 'cp', 'scp']):
+                                    if not allow_cross:
+                                        continue
+                                else:
+                                    # Strict match
                                         if prod_storage != cons_storage:
-                                            continue
+                                        continue
                                     
-                                    if prod_ts_slope > 0:
-                                        estT_prod = prod_opCount * prod_aggregateFilesizeMB / prod_estimated_trMiB
-                                    else:
-                                        estT_prod = (1/prod_opCount) * prod_aggregateFilesizeMB / prod_estimated_trMiB
-                                    if cons_ts_slope > 0:
-                                        estT_cons = cons_opCount * cons_aggregateFilesizeMB / cons_estimated_trMiB 
-                                    else:
-                                        estT_cons = (1/cons_opCount) * cons_aggregateFilesizeMB / cons_estimated_trMiB
-                                    SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
-                                    # Use both parallelisms in the key
+                                if prod_ts_slope > 0:
+                                    estT_prod = prod_opCount * prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                else:
+                                    estT_prod = (1/prod_opCount) * prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                if cons_ts_slope > 0:
+                                    estT_cons = cons_opCount * cons_aggregateFilesizeMB / cons_estimated_trMiB 
+                                else:
+                                    estT_cons = (1/cons_opCount) * cons_aggregateFilesizeMB / cons_estimated_trMiB
+                                SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
+                                # Use both parallelisms in the key
                                     edge_key = f'{cons_storage}_{n_prod.replace("p", "")}_{n_cons}'
                                     edge_attributes[f'estT_prod_{prod_storage}_{n_prod}'] = estT_prod
                                     edge_attributes[f'estT_cons_{cons_storage}_{n_cons}'] = estT_cons
-                                    edge_attributes[f'SPM_{edge_key}'] = SPM
-                                    edge_count += 1
+                                edge_attributes[f'SPM_{edge_key}'] = SPM
+                                edge_count += 1
                     # Add debug print if no edge_attributes were set
                     if not edge_attributes and debug:
                         print(f"[WARNING] No SPM/estT values for edge {prod_task_name} -> {consumer_row['taskName']}")
@@ -719,7 +719,7 @@ def normalize_estT_values(SPM_estT_values: Dict[str, Dict[str, Any]], debug=Fals
     dict: A new dictionary with normalized values within each pair.
     """
     if debug:
-        print("Normalizing estT_prod, estT_cons, and SPM values within each producer-consumer pair.")
+    print("Normalizing estT_prod, estT_cons, and SPM values within each producer-consumer pair.")
     # Create a new dictionary for normalized values
     normalized_SPM_estT_values = {}
 
@@ -1198,8 +1198,8 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
                     # Extract the actual task name from stage_in-{taskName}
                     actual_task_name = taskName.replace('stage_in-', '')
                     # Find the next integer stage where the actual task should be
-                    next_stage = float(stageOrder) + 0.5 if float(stageOrder) % 1 == 0 else float(stageOrder) + 1.0
-                    next_tasks = stage_task_node_dict.get(next_stage, {})
+                        next_stage = float(stageOrder) + 0.5 if float(stageOrder) % 1 == 0 else float(stageOrder) + 1.0
+                        next_tasks = stage_task_node_dict.get(next_stage, {})
                     if actual_task_name in next_tasks:
                         if debug:
                             print(f"Found stage_in connection: {taskName} -> {actual_task_name}")
@@ -1210,9 +1210,9 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
                 
                 # Handle stage_out connections (cp/scp nodes as consumers)
                 elif op in ['cp', 'scp', 2, 3] and str(taskName).startswith('stage_out-'):
-                    # Find the previous stage (stageOrder-0.5 or int-1)
-                    prev_stage = float(stageOrder) - 0.5 if float(stageOrder) % 1 == 0 else float(stageOrder) - 1.0
-                    prev_tasks = stage_task_node_dict.get(prev_stage, {})
+                        # Find the previous stage (stageOrder-0.5 or int-1)
+                        prev_stage = float(stageOrder) - 0.5 if float(stageOrder) % 1 == 0 else float(stageOrder) - 1.0
+                        prev_tasks = stage_task_node_dict.get(prev_stage, {})
                     if prev_tasks:
                         all_producer_consumer_pairs.append((prev_tasks, {taskName: [nodeName]}))
                 
@@ -1233,9 +1233,9 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
                                 print(f"DEBUG: Looking for stage_out-{taskName} at stage {next_stage}, available tasks: {list(next_tasks.keys())}")
                 
                 # Handle initial/final data movement
-                elif str(taskName).startswith('stage_in-0') or str(taskName).startswith('stage_out-final'):
-                    # These are already handled by the main loop or are terminal nodes
-                    pass
+                    elif str(taskName).startswith('stage_in-0') or str(taskName).startswith('stage_out-final'):
+                        # These are already handled by the main loop or are terminal nodes
+                        pass
 
     # Debug: Print all collected pairs
     if debug:
