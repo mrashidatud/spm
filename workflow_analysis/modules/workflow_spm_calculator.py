@@ -235,20 +235,44 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
         print(f"Producer tasks: {sorted(producer_df['taskName'].unique())}")
         print(f"Consumer tasks: {sorted(consumer_df['taskName'].unique())}")
     
-    # Debug: Check for specific missing pairs
+    # Debug: Check for potential missing pairs based on naming patterns
     missing_pairs = []
-    for prod_task in ['aggregate', 'inference']:
-        for cons_task in [f'stage_out-{prod_task}']:
-            if prod_task in producer_df['taskName'].values and cons_task in consumer_df['taskName'].values:
+    producer_tasks = set(producer_df['taskName'].unique())
+    consumer_tasks = set(consumer_df['taskName'].unique())
+
+    # Look for stage_out pattern matches
+    for prod_task in producer_tasks:
+        # Skip stage_in tasks as they are not expected to have stage_out counterparts
+        if 'stage_in' in prod_task:
+            continue
+            
+        # Check for corresponding stage_out task
+        expected_consumer = f'stage_out-{prod_task}'
+        if expected_consumer in consumer_tasks:
+            if debug:
+                print(f"✓ Found matching pair: {prod_task} -> {expected_consumer}")
+        else:
+            missing_pairs.append((prod_task, expected_consumer))
+            if debug:
+                print(f"✗ Missing consumer: {expected_consumer} for producer: {prod_task}")
+
+    # Check for orphaned stage_out consumers (consumers without matching producers)
+    for cons_task in consumer_tasks:
+        if cons_task.startswith('stage_out-'):
+            expected_producer = cons_task.replace('stage_out-', '')
+            if expected_producer not in producer_tasks:
                 if debug:
-                    print(f"✓ Found both {prod_task} and {cons_task}")
-            else:
-                missing_pairs.append((prod_task, cons_task))
-                if debug:
-                    if prod_task not in producer_df['taskName'].values:
-                        print(f"✗ Missing producer: {prod_task}")
-                    if cons_task not in consumer_df['taskName'].values:
-                        print(f"✗ Missing consumer: {cons_task}")
+                    print(f"✗ Orphaned consumer: {cons_task} (no matching producer: {expected_producer})")
+
+    # Check for regular task relationships via prevTask
+    for _, consumer_row in consumer_df.iterrows():
+        prev_task = consumer_row.get('prevTask')
+        if prev_task and prev_task not in producer_tasks:
+            if debug:
+                print(f"✗ Consumer {consumer_row['taskName']} references missing producer: {prev_task}")
+
+    if debug and missing_pairs:
+        print(f"\nSummary: {len(missing_pairs)} potential missing stage_out pairs found")
 
     if producer_df.empty or consumer_df.empty:
         if debug:
