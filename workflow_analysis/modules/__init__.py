@@ -35,10 +35,6 @@ from .workflow_visualization import (
     plot_spm_distribution, plot_estimated_transfer_rates, plot_workflow_stages
 )
 
-from .workflow_analysis_main import (
-    run_workflow_analysis, analyze_multiple_workflows
-)
-
 from .workflow_results_exporter import (
     extract_producer_consumer_results, save_producer_consumer_results,
     create_detailed_producer_consumer_report, analyze_storage_distribution,
@@ -94,9 +90,6 @@ __all__ = [
     'plot_all_visualizations', 'create_summary_report',
     'plot_storage_performance_comparison', 'plot_io_time_breakdown',
     'plot_spm_distribution', 'plot_estimated_transfer_rates', 'plot_workflow_stages',
-    
-    # Main orchestration
-    'run_workflow_analysis', 'analyze_multiple_workflows',
     
     # Results export
     'extract_producer_consumer_results', 'save_producer_consumer_results',

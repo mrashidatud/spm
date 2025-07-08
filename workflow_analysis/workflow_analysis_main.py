@@ -10,19 +10,19 @@ import sys
 from typing import Dict, Any
 
 # Import our modules
-from .workflow_config import DEFAULT_WF, TEST_CONFIGS, STORAGE_LIST
-from .workflow_data_utils import (
+from modules.workflow_config import DEFAULT_WF, TEST_CONFIGS, STORAGE_LIST
+from modules.workflow_data_utils import (
     load_workflow_data, calculate_io_time_breakdown
 )
-from .workflow_interpolation import (
+from modules.workflow_interpolation import (
     estimate_transfer_rates_for_workflow, calculate_aggregate_filesize_per_node
 )
-from .workflow_spm_calculator import (
+from modules.workflow_spm_calculator import (
     calculate_spm_for_workflow, filter_storage_options,
     display_top_sorted_averaged_rank, select_best_storage_and_parallelism
 )
-from .workflow_visualization import plot_all_visualizations
-from .workflow_results_exporter import save_producer_consumer_results, print_storage_analysis
+from modules.workflow_visualization import plot_all_visualizations
+from modules.workflow_results_exporter import save_producer_consumer_results, print_storage_analysis
 
 
 def run_workflow_analysis(workflow_name: str = DEFAULT_WF, 
@@ -78,7 +78,9 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     # Step 5: Estimate transfer rates (if IOR data is available)
     if not df_ior.empty:
         print("\n5. Estimating transfer rates...")
-        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST)
+        # Get allowed_parallelism from config, with fallback to default
+        allowed_parallelism = config.get("ALLOWED_PARALLELISM", None)
+        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST, allowed_parallelism)
         print("   Transfer rate estimation completed")
     else:
         print("\n5. Skipping transfer rate estimation (no IOR data)")
@@ -111,7 +113,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
         csv_path = save_producer_consumer_results(best_results, wf_df, workflow_name)
         
         # Print storage analysis
-        from .workflow_results_exporter import extract_producer_consumer_results
+        from modules.workflow_results_exporter import extract_producer_consumer_results
         results_df = extract_producer_consumer_results(best_results, wf_df)
         print_storage_analysis(results_df)
     

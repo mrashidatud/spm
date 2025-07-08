@@ -154,12 +154,28 @@ def calculate_4d_interpolation_with_extrapolation(df_ior_sorted,
 
 
 
-def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list, allowed_parallelism, multi_nodes=True, debug=False):
+def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list, allowed_parallelism=None, multi_nodes=True, debug=False):
     """
     Estimate transfer rates for all tasks in a workflow dataframe using 4D interpolation.
     Handles cp/scp operations and ensures all parallelism values in cp/scp rows are included in allowed_parallelism.
     cp is operation 2, scp is operation 3.
+    
+    Parameters:
+    - wf_pfs_df: Workflow DataFrame
+    - df_ior_sorted: IOR benchmark data
+    - storage_list: List of storage types
+    - allowed_parallelism: List of allowed parallelism values (defaults to [1, max_parallelism] if None)
+    - multi_nodes: Whether to use multi-node mode
+    - debug: Whether to enable debug output
     """
+    # Set default allowed_parallelism if not provided
+    if allowed_parallelism is None:
+        # Get max parallelism from the workflow data
+        max_parallelism = wf_pfs_df['parallelism'].max() if 'parallelism' in wf_pfs_df.columns else 1
+        allowed_parallelism = [1, max_parallelism]
+        if debug:
+            print(f"Using default allowed_parallelism: {allowed_parallelism}")
+    
     # Ensure all parallelism values in cp/scp rows are included
     cp_scp_parallelism = set(wf_pfs_df.loc[wf_pfs_df['operation'].isin(['cp', 'scp']), 'parallelism'].unique())
     allowed_parallelism = sorted(set(allowed_parallelism).union(cp_scp_parallelism))

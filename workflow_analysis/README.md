@@ -87,6 +87,16 @@ workflow_analysis/
 
 ## Usage
 
+### 1. Main Analysis Script
+
+The main entry point for workflow analysis is now:
+
+```
+python3 workflow_analysis/workflow_analysis_main.py --help
+```
+
+This script orchestrates the full workflow analysis pipeline, including loading workflow data, estimating transfer rates, calculating SPM, filtering storage options, selecting best storage/parallelism, and displaying results. See command-line options with `--help`.
+
 ### 🎯 Option 1: Using the Main Notebook (Recommended)
 
 1. Open `workflow_analysis.ipynb` in Jupyter

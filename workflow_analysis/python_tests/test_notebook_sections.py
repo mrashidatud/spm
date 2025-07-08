@@ -58,10 +58,8 @@ def test_notebook_sections():
         
         # Get allowed parallelism and num_nodes from config
         allowed_parallelism = config.get("ALLOWED_PARALLELISM", None)
-        num_nodes_list = config.get("NUM_NODES_LIST", None)
         
-        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST, 
-                                                   allowed_parallelism, num_nodes_list)
+        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST, allowed_parallelism)
         estimated_cols = [col for col in wf_df.columns if col.startswith('estimated_trMiB_')]
         print(f"✓ Estimated transfer rate columns: {len(estimated_cols)}")
         

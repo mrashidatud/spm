@@ -45,7 +45,9 @@ def test_complete_workflow():
         df_ior = pd.read_csv(IOR_DATA_PATH)
         print(f"Loaded {len(df_ior)} IOR benchmark records")
         
-        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST)
+        # Get allowed_parallelism from config, with fallback to default
+        allowed_parallelism = config.get("ALLOWED_PARALLELISM", None)
+        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST, allowed_parallelism)
         estimated_cols = [col for col in wf_df.columns if col.startswith('estimated_trMiB_')]
         print(f"Estimated transfer rate columns: {len(estimated_cols)}")
         
