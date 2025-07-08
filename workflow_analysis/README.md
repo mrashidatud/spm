@@ -10,7 +10,8 @@ The workflow analysis system processes datalife statistics from scientific workf
 
 ```
 workflow_analysis/
-├── modules/                          # 🆕 Core Python modules
+├── workflow_analysis_main.py         # 🆕 Main orchestration script (standalone)
+├── modules/                          # Core Python modules
 │   ├── __init__.py                   # Package initialization
 │   ├── README.md                     # Detailed module documentation
 │   ├── workflow_config.py            # Configuration management
@@ -18,8 +19,10 @@ workflow_analysis/
 │   ├── workflow_interpolation.py     # Transfer rate estimation
 │   ├── workflow_spm_calculator.py    # SPM calculations
 │   ├── workflow_visualization.py     # Visualization and reporting
-│   └── workflow_analysis_main.py     # Main orchestration
-├── python_tests/                     # 🆕 Comprehensive test suite
+│   ├── workflow_data_staging.py      # Data staging operations
+│   ├── workflow_results_exporter.py  # Results export utilities
+│   └── __init__.py                   # Module initialization
+├── python_tests/                     # Comprehensive test suite
 │   ├── README.md                     # Test documentation
 │   ├── test_simple_workflow.py       # Basic workflow loading test
 │   ├── test_interpolation.py         # Interpolation function test
@@ -68,10 +71,11 @@ workflow_analysis/
    - Workflow stage analysis plots
    - Summary report generation
 
-6. **`workflow_analysis_main.py`** - Main analysis script
-   - Complete analysis pipeline orchestration
-   - Command-line interface
-   - Batch analysis of multiple workflows
+6. **`workflow_data_staging.py`** - Data staging operations
+   - Functions to stage workflow data for analysis
+
+7. **`workflow_results_exporter.py`** - Results export utilities
+   - Functions to export analysis results to various formats
 
 ### Test Suite (in `python_tests/` directory)
 
@@ -107,32 +111,34 @@ This script orchestrates the full workflow analysis pipeline, including loading 
 ### Option 2: Using the Command-Line Script
 
 ```bash
-# Navigate to the modules directory
-cd modules
+# Navigate to the workflow analysis directory
+cd workflow_analysis
 
 # Analyze a specific workflow
-python workflow_analysis_main.py --workflow ddmd_4n_l
+python3 workflow_analysis_main.py --workflow ddmd_4n_l
 
 # Analyze all available workflows
-python workflow_analysis_main.py --all
+python3 workflow_analysis_main.py --all
 
 # Use custom IOR data path
-python workflow_analysis_main.py --workflow ddmd_4n_l --ior-data ../../perf_profiles/updated_master_ior_df.csv
+python3 workflow_analysis_main.py --workflow ddmd_4n_l --ior-data ../perf_profiles/updated_master_ior_df.csv
 
 # Run without saving results
-python workflow_analysis_main.py --workflow ddmd_4n_l --no-save
+python3 workflow_analysis_main.py --workflow ddmd_4n_l --no-save
 ```
 
 ### Option 3: Using the Main Script Programmatically
 
 ```python
-# Import from the modules package
-from modules.workflow_analysis_main import run_workflow_analysis
+# Import the main script directly
+import sys
+sys.path.append('workflow_analysis')
+from workflow_analysis_main import run_workflow_analysis
 
 # Run analysis for a specific workflow
 results = run_workflow_analysis(
     workflow_name="ddmd_4n_l",
-    ior_data_path="../../perf_profiles/updated_master_ior_df.csv",
+    ior_data_path="../perf_profiles/updated_master_ior_df.csv",
     save_results=True
 )
 

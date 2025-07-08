@@ -13,13 +13,13 @@ This project provides tools and analysis capabilities for understanding and opti
 ```
 spm/
 ├── workflow_analysis/                 # 🎯 Main analysis system (Primary user interface)
+│   ├── workflow_analysis_main.py     # 🆕 Main orchestration script (standalone)
 │   ├── modules/                      # Core Python modules
 │   │   ├── workflow_config.py        # Configuration management
 │   │   ├── workflow_data_utils.py    # Data loading and utilities
 │   │   ├── workflow_interpolation.py # Transfer rate estimation
 │   │   ├── workflow_spm_calculator.py # SPM calculations
 │   │   ├── workflow_visualization.py # Visualization and reporting
-│   │   ├── workflow_analysis_main.py # Main orchestration
 │   │   ├── workflow_data_staging.py  # Data staging operations
 │   │   ├── workflow_results_exporter.py # Results export utilities
 │   │   ├── README.md                 # Detailed module documentation
@@ -61,14 +61,20 @@ jupyter notebook
 ### Option 2: Using the Command-Line Interface
 
 ```bash
-# Navigate to the modules directory
-cd workflow_analysis/modules
+# Navigate to the workflow analysis directory
+cd workflow_analysis
 
 # Analyze a specific workflow
-python workflow_analysis_main.py --workflow ddmd_4n_l
+python3 workflow_analysis_main.py --workflow ddmd_4n_l
 
 # Analyze all available workflows
-python workflow_analysis_main.py --all
+python3 workflow_analysis_main.py --all
+
+# Use custom IOR data path
+python3 workflow_analysis_main.py --workflow ddmd_4n_l --ior-data ../perf_profiles/updated_master_ior_df.csv
+
+# Run without saving results
+python3 workflow_analysis_main.py --workflow ddmd_4n_l --no-save
 ```
 
 ### Option 3: Using Individual Modules
