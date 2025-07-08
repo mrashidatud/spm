@@ -105,6 +105,13 @@ TEST_CONFIGS = {
         "ALLOWED_PARALLELISM": [1],
         "exp_data_path": "./llm",
         "test_folders": ['llm_wf_2s']
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [1],
+        "ALLOWED_PARALLELISM": [1],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ['template_t1']
     }
 }
 
