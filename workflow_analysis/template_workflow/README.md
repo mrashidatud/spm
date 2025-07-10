@@ -2,6 +2,9 @@
 
 This directory contains a template workflow system designed for testing, development, and learning the workflow analysis pipeline. The template demonstrates a simple producer-consumer relationship with artificial data that mimics real workflow patterns.
 
+# TODO
+- add column parameter explaination.
+
 ## 📁 Directory Structure
 
 ```
