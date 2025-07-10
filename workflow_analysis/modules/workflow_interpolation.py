@@ -3,6 +3,7 @@ Interpolation module for workflow analysis.
 Contains functions for 4D interpolation to estimate transfer rates.
 """
 
+import warnings
 import numpy as np
 import pandas as pd
 from typing import Tuple, Optional
@@ -168,6 +169,8 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
     - multi_nodes: Whether to use multi-node mode
     - debug: Whether to enable debug output
     """
+    # Suppress Python warnings
+    warnings.filterwarnings('ignore')
     # Set default allowed_parallelism if not provided
     if allowed_parallelism is None:
         # Get max parallelism from the workflow data

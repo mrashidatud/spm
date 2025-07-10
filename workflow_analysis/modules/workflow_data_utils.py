@@ -364,9 +364,13 @@ def assign_task_names(tasks: Dict[str, Dict[str, Any]],
     return tasks
 
 
-def load_workflow_data(wf_name: str = DEFAULT_WF) -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
+def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False) -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
     """
     Load and process workflow data.
+    
+    Parameters:
+    - wf_name: Name of the workflow to load
+    - debug: Whether to enable debug print statements
     
     Returns:
     - DataFrame: Processed workflow data
@@ -408,7 +412,8 @@ def load_workflow_data(wf_name: str = DEFAULT_WF) -> Tuple[pd.DataFrame, Dict[st
     
     # Additional logic to properly assign prevTask for read operations based on file patterns
     # This matches the logic from the original notebook
-    print("Debug: Starting prevTask assignment for read operations...")
+    if debug:
+        print("Debug: Starting prevTask assignment for read operations...")
     for index, row in wf_df.iterrows():
         if row['operation'] == 0:  # Write operation
             if row['taskName'] == '':
@@ -420,20 +425,25 @@ def load_workflow_data(wf_name: str = DEFAULT_WF) -> Tuple[pd.DataFrame, Dict[st
             
             if taskName in task_order_dict:
                 task_definition = task_order_dict[taskName]
-                print(f"Debug: Processing {taskName} with fileName {fileName}")
+                if debug:
+                    print(f"Debug: Processing {taskName} with fileName {fileName}")
                 
                 # Check predecessors for this task
                 for prevTask, inputs in task_definition['predecessors'].items():
                     input_patterns = inputs['inputs']
-                    print(f"Debug: Checking prevTask {prevTask} with patterns {input_patterns}")
+                    if debug:
+                        print(f"Debug: Checking prevTask {prevTask} with patterns {input_patterns}")
                     if matches_pattern(fileName, input_patterns):
-                        print(f"Debug: MATCH! Setting prevTask to {prevTask} for {fileName}")
+                        if debug:
+                            print(f"Debug: MATCH! Setting prevTask to {prevTask} for {fileName}")
                         wf_df.at[index, 'prevTask'] = prevTask
                         break
                     else:
-                        print(f"Debug: No match for {fileName} with patterns {input_patterns}")
+                        if debug:
+                            print(f"Debug: No match for {fileName} with patterns {input_patterns}")
             else:
-                print(f"Debug: taskName {taskName} not found in task_order_dict")
+                if debug:
+                    print(f"Debug: taskName {taskName} not found in task_order_dict")
     
     # Add parallelism and numNodes information
     task_name_to_parallelism = {task: info['parallelism'] for task, info in task_order_dict.items()}
@@ -451,7 +461,8 @@ def load_workflow_data(wf_name: str = DEFAULT_WF) -> Tuple[pd.DataFrame, Dict[st
     # Expand DataFrame for multi-node configurations if enabled
     if MULTI_NODES:
         wf_df = expand_df(wf_df, num_nodes_list)
-        print(f"Expanded DataFrame shape after multi-node expansion: {wf_df.shape}")
+        if debug:
+            print(f"Expanded DataFrame shape after multi-node expansion: {wf_df.shape}")
     
     # For rows when parallelism is 1, update numNodes to 1
     for index, row in wf_df.iterrows():
