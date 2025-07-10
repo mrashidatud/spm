@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from collections import defaultdict
+from .workflow_data_utils import standardize_operation
 
 
 def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
@@ -33,7 +34,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
         return file_groups
 
     # 1. Initial data movement (stageOrder==0, operation==1)
-    initial_rows = wf_df[(wf_df['stageOrder'] == 0) & (wf_df['operation'] == 1)]
+    initial_rows = wf_df[(wf_df['stageOrder'] == 0) & (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read'))]
     if debug:
         print(f"Initial data movement: {len(initial_rows)} rows found.")
     if not initial_rows.empty:
@@ -142,7 +143,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
                         print(f"Added intermediate stage_out row: {row}")
 
     # 2b. Insert stage-out for all tasks with write operations (operation == 0)
-    write_rows = wf_df[wf_df['operation'] == 0]
+    write_rows = wf_df[wf_df['operation'].apply(lambda x: standardize_operation(x) == 'write')]
     for taskName, group in write_rows.groupby('taskName'):
         # Skip if taskName already contains 'stage_out' or 'stage_in'
         if 'stage_out' in taskName or 'stage_in' in taskName:

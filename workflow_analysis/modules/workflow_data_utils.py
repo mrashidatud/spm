@@ -135,7 +135,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
         print(f"Recorded large totalTime[{monitor_timer_stat_io}] from task_pid[{task_pid}] fileName[{fileName}]")
     
     # Determine operation type
-    op = "w" if operation == 0 else "r"
+    op = get_operation_type(operation)
     
     # Ensure the trial folder exists
     if not os.path.exists(trial_folder):
@@ -420,7 +420,7 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False) -> Tuple[
     if debug:
         print("Debug: Starting prevTask assignment for read operations...")
     for index, row in wf_df.iterrows():
-        if row['operation'] == 0:  # Write operation
+        if standardize_operation(row['operation']) == 'write':  # Write operation
             if row['taskName'] == '':
                 wf_df.at[index, 'taskName'] = 'none'
         else:  # Read operation
@@ -524,8 +524,8 @@ def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: D
                                num_nodes_list: List[int]) -> Dict[str, float]:
     """Calculate I/O time breakdown per task."""
     # Calculate I/O time per taskName
-    write_sub_df = wf_df[wf_df['operation'] == 0]
-    read_sub_df = wf_df[wf_df['operation'] == 1]
+    write_sub_df = wf_df[wf_df['operation'].apply(lambda x: standardize_operation(x) == 'write')]
+    read_sub_df = wf_df[wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read')]
 
     task_io_time_total = wf_df.groupby('taskName')['totalTime'].sum()
     task_io_time_write = write_sub_df.groupby('taskName')['totalTime'].sum()
@@ -561,3 +561,47 @@ def calculate_io_time_breakdown(wf_df: pd.DataFrame, task_name_to_parallelism: D
         'total_read_time': total_wf_io_time_read,
         'task_io_time_adjust': task_io_time_adjust
     } 
+
+
+def standardize_operation(operation):
+    """
+    Standardize operation codes to string format.
+    
+    Parameters:
+    - operation: Operation code (int or str)
+    
+    Returns:
+    - str: Standardized operation string
+    """
+    if isinstance(operation, str):
+        return operation
+    elif isinstance(operation, (int, np.integer)):
+        if operation == 0:
+            return 'write'
+        elif operation == 1:
+            return 'read'
+        elif operation == 2:
+            return 'cp'
+        elif operation == 3:
+            return 'scp'
+        else:
+            return str(operation)
+    else:
+        return str(operation)
+
+
+def get_operation_type(operation):
+    """
+    Get operation type for file matching.
+    
+    Parameters:
+    - operation: Operation code (int or str)
+    
+    Returns:
+    - str: Operation type ('w' for write, 'r' for read)
+    """
+    op = standardize_operation(operation)
+    if op in ['write', 'cp']:
+        return 'w'
+    else:
+        return 'r' 

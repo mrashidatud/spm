@@ -190,8 +190,8 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
         task_name = node_data.get('taskName', '')
         
         # Producers: regular tasks (op 0,1) and stage_in tasks (cp/scp)
-        if (op in [0, 1, 2, 3, 'cp', 'scp'] and 
-            (op in [0, 1] or 'stage_in' in task_name)):
+        if (op in [0, 1, 2, 3, 'cp', 'scp', 'read', 'write'] and 
+            (op in [0, 1, 'read', 'write'] or 'stage_in' in task_name)):
             producer_data.append({
                 'node_name': node_name,
                 'taskName': node_data.get('taskName'),
@@ -213,8 +213,8 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
         task_name = node_data.get('taskName', '')
         
         # Consumers: regular tasks (op 0,1) and stage_out tasks (cp/scp)
-        if (op in [0, 1, 2, 3, 'cp', 'scp'] and 
-            (op in [0, 1] or 'stage_out' in task_name)):
+        if (op in [0, 1, 2, 3, 'cp', 'scp', 'read', 'write'] and 
+            (op in [0, 1, 'read', 'write'] or 'stage_out' in task_name)):
             consumer_data.append({
                 'node_name': node_name,
                 'taskName': node_data.get('taskName'),

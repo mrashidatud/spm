@@ -238,11 +238,17 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
 
                     # Set operation code: cp=2, scp=3, else use row['operation']
                     if operation == 'cp':
-                        op_code = 2
+                        op_code = 'cp'
                     elif operation == 'scp':
-                        op_code = 3
+                        op_code = 'scp'
                     else:
-                        op_code = row['operation']
+                        # For numeric operations, map to string operations
+                        if operation == 0:
+                            op_code = 'write'
+                        elif operation == 1:
+                            op_code = 'read'
+                        else:
+                            op_code = operation
 
                     estimated_trMiB_storage, ts_slope = calculate_4d_interpolation_with_extrapolation(
                         df_ior_storage,

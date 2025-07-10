@@ -58,14 +58,19 @@ wf_df, task_order, wf_dict = load_workflow_data("ddmd_4n_l")
 - `calculate_aggregate_filesize_per_node()`: Calculate aggregate file size per node
 
 **Inputs**:
-- IOR benchmark data DataFrame
-- Workflow DataFrame with task information
+- IOR benchmark data DataFrame (with string operations: 'write', 'read', 'cp', 'scp')
+- Workflow DataFrame with task information (with integer operations: 0, 1)
 - Target parameters (operation, file size, nodes, parallelism, transfer size)
 
 **Outputs**:
 - Estimated transfer rates for each storage type and parallelism level
 - Transfer size slopes for performance modeling
 - Updated workflow DataFrame with estimated values
+
+**Operation Mapping**:
+The function automatically maps workflow integer operations to IOR string operations:
+- Workflow operation 0 → IOR operation 'write'
+- Workflow operation 1 → IOR operation 'read'
 
 **Usage**:
 ```python
@@ -196,6 +201,27 @@ workflow_results_exporter.py (Results Export)
          ↓
 workflow_analysis_main.py (Orchestration)
 ```
+
+## Operation Code Handling
+
+The modules handle operation codes differently for workflow data and IOR benchmark data:
+
+### Workflow Data Operations (Integer)
+- **0**: Write operations  
+- **1**: Read operations
+
+### IOR Benchmark Data Operations (String)
+- **'write'**: Write operations
+- **'read'**: Read operations
+- **'cp'**: Copy operations  
+- **'scp'**: Secure copy operations
+
+### Automatic Mapping
+The `estimate_transfer_rates_for_workflow()` function in `workflow_interpolation.py` automatically maps workflow integer operations to IOR string operations:
+- Workflow operation 0 → IOR operation 'write'
+- Workflow operation 1 → IOR operation 'read'
+
+**Important**: When using IOR benchmark data, keep operations as strings. Do not convert them to integers, as the function handles the mapping internally.
 
 ## Dependencies
 

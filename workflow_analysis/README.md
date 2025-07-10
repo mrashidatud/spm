@@ -197,6 +197,26 @@ The system supports analysis of multiple workflows:
 - `llm_wf` - LLM workflow
 - `template_workflow` - 🆕 **Template workflow for testing and examples**
 
+## Operation Code Handling
+
+The system handles operation codes differently for workflow data and IOR benchmark data:
+
+### Workflow Data Operations
+- **0**: Write operations
+- **1**: Read operations
+
+### IOR Benchmark Data Operations  
+- **'write'**: Write operations
+- **'read'**: Read operations  
+- **'cp'**: Copy operations
+- **'scp'**: Secure copy operations
+
+The `estimate_transfer_rates_for_workflow()` function automatically maps workflow integer operations to IOR string operations:
+- Workflow operation 0 → IOR operation 'write'
+- Workflow operation 1 → IOR operation 'read'
+
+**Important**: When using IOR benchmark data in your analysis, keep the operations as strings. Do not convert them to integers, as the function handles the mapping internally.
+
 ## Template Workflow and API
 
 ### 🆕 Template Workflow
@@ -356,7 +376,7 @@ result = generate_complete_template(
 
 The generated `workflow_data.csv` includes all required columns:
 
-- `operation`: 0 (write) or 1 (read)
+- `operation`: 0 (write) or 1 (read) for workflow data, or 'write'/'read'/'cp'/'scp' for IOR benchmark data
 - `taskName`: Name of the task (e.g., "task1", "task2")
 - `fileName`: Name of the file being processed
 - `stageOrder`: Execution order (0, 1, 2, etc.)

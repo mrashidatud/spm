@@ -31,7 +31,7 @@ python3 test_simple_workflow.py
   - Task definitions: 4
   - Workflow dict entries: 4
   - Unique tasks: ['openmm', 'aggregate', 'training', 'inference']
-  - Operations: [0, 1]
+  - Operations: [0, 1] (workflow data format - integers)
   - Sample data shape: (267, 55)
 ✓ All steps completed successfully!
 ```

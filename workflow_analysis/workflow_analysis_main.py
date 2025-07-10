@@ -19,10 +19,12 @@ from modules.workflow_interpolation import (
 )
 from modules.workflow_spm_calculator import (
     calculate_spm_for_workflow, filter_storage_options,
-    display_top_sorted_averaged_rank, select_best_storage_and_parallelism
+    display_top_sorted_averaged_rank, select_best_storage_and_parallelism,
+    calculate_averages_and_rank
 )
 from modules.workflow_visualization import plot_all_visualizations
-from modules.workflow_results_exporter import save_producer_consumer_results, print_storage_analysis
+from modules.workflow_results_exporter import save_producer_consumer_results, print_storage_analysis, extract_producer_consumer_results
+from modules.workflow_data_staging import insert_data_staging_rows
 
 
 def run_workflow_analysis(workflow_name: str = DEFAULT_WF, 
@@ -56,14 +58,21 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     print(f"   Loaded {len(wf_df)} workflow records")
     print(f"   Found {len(task_order_dict)} task definitions")
     print(f"   Unique tasks: {list(wf_df['taskName'].unique())}")
+    print(f"   Stages: {sorted(wf_df['stageOrder'].unique())}")
     
     # Step 2: Calculate I/O time breakdown
     print("\n2. Calculating I/O time breakdown...")
     io_breakdown = calculate_io_time_breakdown(wf_df, task_name_to_parallelism, num_nodes_list)
     
-    # Step 3: Calculate aggregate file size per node
-    print("\n3. Calculating aggregate file size per node...")
+    # Step 2.1: Calculate aggregate file size per node
+    print("\n2.1. Calculating aggregate file size per node...")
     wf_df = calculate_aggregate_filesize_per_node(wf_df)
+    print(f"Updated columns: {[col for col in wf_df.columns if 'aggregateFilesizeMB' in col]}")
+    
+    # Step 3: Insert data staging rows
+    print("\n3. Inserting data staging rows...")
+    wf_df = insert_data_staging_rows(wf_df)
+    print(f"   Added staging rows, total records: {len(wf_df)}")
     
     # Step 4: Load IOR benchmark data
     print("\n4. Loading IOR benchmark data...")
@@ -75,20 +84,37 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
         df_ior = pd.read_csv(ior_data_path)
         print(f"   Loaded {len(df_ior)} IOR benchmark records")
     
-    # Step 5: Estimate transfer rates (if IOR data is available)
+    # Step 5: Estimate transfer rates
     if not df_ior.empty:
         print("\n5. Estimating transfer rates...")
         # Get allowed_parallelism from config, with fallback to default
-        allowed_parallelism = config.get("ALLOWED_PARALLELISM", None)
-        wf_df = estimate_transfer_rates_for_workflow(wf_df, df_ior, STORAGE_LIST, allowed_parallelism)
+        cp_scp_parallelism = set(wf_df.loc[wf_df['operation'].isin(['cp', 'scp']), 'parallelism'].unique())
+        ALLOWED_PARALLELISM = TEST_CONFIGS[workflow_name]["ALLOWED_PARALLELISM"]
+        allowed_parallelism = sorted(set(ALLOWED_PARALLELISM).union(cp_scp_parallelism))
+        print(f"   Allowed parallelism: {allowed_parallelism}")
+        wf_df = estimate_transfer_rates_for_workflow(
+            wf_df, df_ior, STORAGE_LIST, allowed_parallelism, multi_nodes=True, debug=False)
         print("   Transfer rate estimation completed")
     else:
         print("\n5. Skipping transfer rate estimation (no IOR data)")
     
     # Step 6: Calculate SPM values
     print("\n6. Calculating SPM values...")
-    spm_results = calculate_spm_for_workflow(wf_df)
+    spm_results = calculate_spm_for_workflow(wf_df, debug=False)
     print(f"   Calculated SPM for {len(spm_results)} producer-consumer pairs")
+    
+    # Add ranking step to match notebook
+    spm_results = calculate_averages_and_rank(spm_results, debug=False)
+    
+    # Debug: Check SPM results structure
+    if spm_results:
+        print(f"   SPM result keys: {list(spm_results.keys())}")
+        sample_pair = list(spm_results.keys())[0]
+        print(f"   Sample pair '{sample_pair}' structure: {list(spm_results[sample_pair].keys())}")
+        if 'rank' in spm_results[sample_pair]:
+            print(f"   Rank data keys: {list(spm_results[sample_pair]['rank'].keys())}")
+        else:
+            print(f"   No 'rank' key found in sample pair")
     
     # Step 7: Filter storage options
     print("\n7. Filtering storage options...")
@@ -100,22 +126,25 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 9: Display top results
     print("\n9. Displaying top results...")
-    display_top_sorted_averaged_rank(filtered_spm_results, top_n=10)
+    display_top_sorted_averaged_rank(spm_results, top_n=20)
     
-    # Step 10: Generate visualizations
+    # Step 10: Generate visualizations (currently not working, skipping)
     print("\n10. Generating visualizations...")
-    if save_results:
-        plot_all_visualizations(wf_df, best_results, io_breakdown['task_io_time_adjust'])
+    print("   Skipping visualizations for now...")
+    # if save_results:
+    #     plot_all_visualizations(wf_df, best_results, io_breakdown['task_io_time_adjust'])
     
     # Step 11: Export producer-consumer results to CSV
     print("\n11. Exporting producer-consumer results...")
     if save_results:
-        csv_path = save_producer_consumer_results(best_results, wf_df, workflow_name)
-        
-        # Print storage analysis
-        from modules.workflow_results_exporter import extract_producer_consumer_results
-        results_df = extract_producer_consumer_results(best_results, wf_df)
+        results_df = extract_producer_consumer_results(spm_results, wf_df)
         print_storage_analysis(results_df)
+        output_dir = "workflow_spm_results"
+        os.makedirs(output_dir, exist_ok=True)
+        csv_filename = f"{workflow_name}_filtered_spm_results.csv"
+        csv_path = os.path.join(output_dir, csv_filename)
+        results_df.to_csv(csv_path, index=False)
+        print(f"✓ Saved to: {csv_path}")
     
     # Step 12: Save additional results
     if save_results:
@@ -139,7 +168,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
                     return obj.tolist()
                 return obj
             
-            json.dump(best_results, f, default=convert_numpy, indent=2)
+            json.dump(spm_results, f, default=convert_numpy, indent=2)
         print(f"   Saved SPM results to: ./analysis_data/{workflow_name}_spm_results.json")
     
     print("\n" + "=" * 60)
