@@ -108,7 +108,7 @@ def get_stat_file_pids(all_files: List[str]) -> List[str]:
 
 def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List, 
                    operation: int, fname: str, task_pid: str, 
-                   store_code: int) -> Dict[str, Any]:
+                   store_code: int, debug: bool = False) -> Dict[str, Any]:
     """Add statistics to DataFrame from datalife monitor data."""
     # Process the file name
     fname = fname.replace(".local", ".")
@@ -164,12 +164,15 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
                 if len(blk_list) >= 4:
                     if blk_list[3] == -2:
                         write_pattern = 1
-                        print(f"Detected random write pattern in file: {matching_file}")
+                        if debug:
+                            print(f"Debug: Detected random write pattern in file: {matching_file}")
                         break
                 else:
-                    print(f"Warning: Invalid 'io_blk_range' in file: {matching_file}")
+                    if debug:
+                        print(f"Warning: Invalid 'io_blk_range' in file: {matching_file}")
         except Exception as e:
-            print(f"Error processing file {matching_file}: {e}")
+            if debug:
+                print(f"Error processing file {matching_file}: {e}")
     
     # Update statistics
     tmp_write_stat['randomOffset'] = write_pattern
@@ -178,7 +181,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
 
 
 def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str], 
-                    storage_type: str = "localssd") -> pd.DataFrame:
+                    storage_type: str = "localssd", debug: bool = False) -> pd.DataFrame:
     """Get workflow result DataFrame from test data."""
     wf_df = pd.DataFrame(columns=wf_params)
 
@@ -187,7 +190,8 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
         folder for folder in glob.glob(f"{tests}/*")
         if folder.endswith(("t1", "t2", "t3"))
     ]
-    print(f"Trial folders: {wf_trial_folders}")
+    if debug:
+        print(f"Trial folders: {wf_trial_folders}")
 
     store_code = transform_store_code(storage_type)
 
@@ -195,9 +199,10 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
         blk_files = glob.glob(f"{trial_folder}/*_blk_trace.json")
         datalife_monitor = glob.glob(f"{trial_folder}/*.datalife.json")
         target_tasks = get_stat_file_pids(blk_files)
-        print(f"blk_files count: {len(blk_files)}")
-        print(f"datalife_monitor count: {len(datalife_monitor)}")
-        print(f"target_tasks: {target_tasks}")
+        if debug:
+            print(f"blk_files count: {len(blk_files)}")
+            print(f"datalife_monitor count: {len(datalife_monitor)}")
+            print(f"target_tasks: {target_tasks}")
 
         for datalife_json in datalife_monitor:
             task_pid = os.path.basename(datalife_json).split(".")[1]
@@ -231,7 +236,7 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
                 tmp_stat = add_stat_to_df(
                     trial_folder, monitor_stat, 
                     1 if op_type == "read" else 0,
-                    fname, task_pid, store_code
+                    fname, task_pid, store_code, debug
                 )
                 # Use concat instead of _append to avoid fragmentation warnings
                 new_row = pd.DataFrame([tmp_stat])
@@ -241,14 +246,14 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
 
 
 def get_test_folder_dfs(test_folders: List[str], wf_params: List[str], 
-                       target_tasks: List[str], storage_type: str = "pfs", exp_data_path: str = "./") -> pd.DataFrame:
+                       target_tasks: List[str], storage_type: str = "pfs", exp_data_path: str = "./", debug: bool = False) -> pd.DataFrame:
     """Get DataFrame for multiple test folders."""
     folder_dfs = pd.DataFrame(columns=wf_params)
     
     for test_folder in test_folders:
         # Construct the full path for the test folder
         full_test_path = f"{exp_data_path}/{test_folder}"
-        wf_df = get_wf_result_df(full_test_path, wf_params, target_tasks, storage_type)
+        wf_df = get_wf_result_df(full_test_path, wf_params, target_tasks, storage_type, debug)
         if len(wf_df) > 0:
             folder_dfs = pd.concat([folder_dfs, wf_df], ignore_index=True)
         
@@ -391,7 +396,7 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False) -> Tuple[
         task_order_dict = json.load(f)
     
     # Get workflow data
-    wf_df = get_test_folder_dfs(test_folders, WF_PARAMS, TARGET_TASKS, storage_type="pfs", exp_data_path=exp_data_path)
+    wf_df = get_test_folder_dfs(test_folders, WF_PARAMS, TARGET_TASKS, storage_type="pfs", exp_data_path=exp_data_path, debug=debug)
     
     # Get workflow PID script dictionary
     all_wf_dict = get_wf_pid_script_dict(test_folders, exp_data_path)
