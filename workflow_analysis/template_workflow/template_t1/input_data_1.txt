@@ -1,3 +1,0 @@
-# Template test file: input_data_1.txt
-# Created: 2025-07-08T01:08:47.471503
-# This is a dummy file for testing workflow analysis

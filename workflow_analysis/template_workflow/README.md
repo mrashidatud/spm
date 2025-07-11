@@ -94,7 +94,9 @@ your_workflow/
 ```
 
 ### 5. **Configuration**
-Add your workflow to the configuration in `modules/workflow_config.py`:
+**Important**: You must add your workflow to the configuration dictionary in `modules/workflow_config.py`. This is required for the system to find and load your workflow data.
+
+Add your workflow to the `TEST_CONFIGS` dictionary in `modules/workflow_config.py`:
 ```python
 "your_workflow": {
     "SCRIPT_ORDER": "your_script_order",
@@ -104,6 +106,15 @@ Add your workflow to the configuration in `modules/workflow_config.py`:
     "test_folders": ["your_test_folder"]
 }
 ```
+
+**Required Configuration Fields:**
+- `SCRIPT_ORDER`: Name of your script order JSON file (without .json extension)
+- `NUM_NODES_LIST`: List of node configurations to test
+- `ALLOWED_PARALLELISM`: List of parallelism levels to analyze
+- `exp_data_path`: Path to your workflow data directory
+- `test_folders`: List of test folder names containing your workflow data
+
+**Note**: Without adding your workflow to this configuration dictionary, the system will not be able to locate or analyze your workflow data.
 
 ### 6. **Run Analysis**
 Analyze your workflow using the SPM system:
