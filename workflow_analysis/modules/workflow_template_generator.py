@@ -162,7 +162,8 @@ def generate_template_workflow_data(
 def create_template_workflow_structure(
     workflow_name: str = "template_workflow",
     output_dir: str = "./template_workflow",
-    debug: bool = False
+    debug: bool = False,
+    csv_filename: str = "workflow_data.csv"
 ) -> Tuple[str, str]:
     """
     Create a complete template workflow structure with script order and data.
@@ -171,6 +172,7 @@ def create_template_workflow_structure(
     - workflow_name: Name of the workflow
     - output_dir: Output directory for the template
     - debug: Enable debug output
+    - csv_filename: Name of the CSV file to save (default: "workflow_data.csv")
     
     Returns:
     - Tuple[str, str]: Paths to script order file and data directory
@@ -178,7 +180,7 @@ def create_template_workflow_structure(
     
     # Create directory structure
     script_order_dir = f"{output_dir}"
-    data_dir = f"{output_dir}/template_run"
+    data_dir = f"{output_dir}/template_t1/t1"  # Place in t1 subdirectory for loader compatibility
     
     os.makedirs(script_order_dir, exist_ok=True)
     os.makedirs(data_dir, exist_ok=True)
@@ -187,7 +189,7 @@ def create_template_workflow_structure(
     wf_df = generate_template_workflow_data(workflow_name, debug=debug)
     
     # Save workflow data to CSV
-    csv_path = f"{data_dir}/workflow_data.csv"
+    csv_path = f"{data_dir}/{csv_filename}"
     wf_df.to_csv(csv_path, index=False)
     
     if debug:
@@ -222,7 +224,7 @@ def add_workflow_to_config(
         "NUM_NODES_LIST": [4],
         "ALLOWED_PARALLELISM": [1, 2, 4, 8],
         "exp_data_path": "./template_workflow",
-        "test_folders": ["template_run"]
+        "test_folders": ["template_t1"]
     }},'''
     
     # Find the TEST_CONFIGS dictionary and add the template
@@ -242,7 +244,8 @@ def add_workflow_to_config(
 
 def generate_complete_template(
     workflow_name: str = "template_workflow",
-    debug: bool = False
+    debug: bool = False,
+    csv_filename: str = "workflow_data.csv"
 ) -> Dict[str, str]:
     """
     Generate a complete template workflow with all necessary files.
@@ -250,13 +253,14 @@ def generate_complete_template(
     Parameters:
     - workflow_name: Name of the template workflow
     - debug: Enable debug output
+    - csv_filename: Name of the CSV file to save (default: "workflow_data.csv")
     
     Returns:
     - Dict[str, str]: Paths to created files
     """
     
     # Create workflow structure
-    script_order_path, data_dir = create_template_workflow_structure(workflow_name, debug=debug)
+    script_order_path, data_dir = create_template_workflow_structure(workflow_name, debug=debug, csv_filename=csv_filename)
     
     # Add to configuration
     add_workflow_to_config(workflow_name)
@@ -322,9 +326,27 @@ def generate_test_files(data_dir: str, debug: bool = False) -> List[str]:
 
 
 if __name__ == "__main__":
-    # Example usage
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Workflow Template Generator')
+    parser.add_argument('--workflow-name', '-w', type=str, default="template_workflow",
+                       help='Name of the template workflow (default: template_workflow)')
+    parser.add_argument('--csv-filename', '-c', type=str, default="workflow_data.csv",
+                       help='Name of the CSV file to save (default: workflow_data.csv)')
+    parser.add_argument('--output-dir', '-o', type=str, default="./template_workflow",
+                       help='Output directory for the template (default: ./template_workflow)')
+    parser.add_argument('--debug', '-d', action='store_true',
+                       help='Enable debug output')
+    
+    args = parser.parse_args()
+    
     print("Generating template workflow...")
-    result = generate_complete_template(debug=True)
+    result = generate_complete_template(
+        workflow_name=args.workflow_name,
+        debug=args.debug,
+        csv_filename=args.csv_filename
+    )
     print(f"\nTemplate created successfully!")
     print(f"Script order: {result['script_order']}")
-    print(f"Data directory: {result['data_dir']}") 
+    print(f"Data directory: {result['data_dir']}")
+    print(f"CSV filename: {args.csv_filename}") 

@@ -36,6 +36,62 @@ OP_DICT = {0: "write", 1: "read"}
 
 # Test configurations for different workflows
 TEST_CONFIGS = {
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_t1"]
+    },
+    "template_workflow": {
+        "SCRIPT_ORDER": "template_script_order",
+        "NUM_NODES_LIST": [4],
+        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
+        "exp_data_path": "./template_workflow",
+        "test_folders": ["template_run"]
+    },
     "ddmd_2n_s": {  # old data, less I/O intensive
         "SCRIPT_ORDER": "ddmd_script_order",
         "NUM_NODES_LIST": [1, 2, 4],

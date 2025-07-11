@@ -29,7 +29,7 @@ from modules.workflow_data_staging import insert_data_staging_rows
 
 def run_workflow_analysis(workflow_name: str = DEFAULT_WF, 
                          ior_data_path: str = "../perf_profiles/updated_master_ior_df.csv",
-                         save_results: bool = True) -> Dict[str, Any]:
+                         save_results: bool = True, csv_filename: str = "workflow_data.csv") -> Dict[str, Any]:
     """
     Run the complete workflow analysis pipeline.
     
@@ -37,6 +37,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     - workflow_name: Name of the workflow to analyze
     - ior_data_path: Path to the IOR benchmark data
     - save_results: Whether to save results to files
+    - csv_filename: Name of the CSV file to load (default: "workflow_data.csv")
     
     Returns:
     - Dict: Analysis results
@@ -46,7 +47,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 1: Load workflow data
     print("\n1. Loading workflow data...")
-    wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name)
+    wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name, csv_filename=csv_filename)
     
     # Get configuration for the workflow
     config = TEST_CONFIGS[workflow_name]
@@ -187,13 +188,15 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
 
 
 def analyze_multiple_workflows(workflow_names: list = None, 
-                              ior_data_path: str = "../perf_profiles/updated_master_ior_df.csv") -> Dict[str, Any]:
+                              ior_data_path: str = "../perf_profiles/updated_master_ior_df.csv",
+                              csv_filename: str = "workflow_data.csv") -> Dict[str, Any]:
     """
     Analyze multiple workflows and compare results.
     
     Parameters:
     - workflow_names: List of workflow names to analyze
     - ior_data_path: Path to the IOR benchmark data
+    - csv_filename: Name of the CSV file to load (default: "workflow_data.csv")
     
     Returns:
     - Dict: Results for all workflows
@@ -210,7 +213,7 @@ def analyze_multiple_workflows(workflow_names: list = None,
         if workflow_name in TEST_CONFIGS:
             print(f"\nAnalyzing workflow: {workflow_name}")
             try:
-                results = run_workflow_analysis(workflow_name, ior_data_path, save_results=True)
+                results = run_workflow_analysis(workflow_name, ior_data_path, save_results=True, csv_filename=csv_filename)
                 all_results[workflow_name] = results
             except Exception as e:
                 print(f"   Error analyzing {workflow_name}: {e}")
@@ -231,6 +234,8 @@ def main():
     parser.add_argument('--ior-data', '-i', type=str, 
                        default="../perf_profiles/updated_master_ior_df.csv",
                        help='Path to IOR benchmark data CSV file')
+    parser.add_argument('--csv-filename', '-c', type=str, default="workflow_data.csv",
+                       help='Name of the workflow CSV file to load (default: workflow_data.csv)')
     parser.add_argument('--all', '-a', action='store_true',
                        help='Analyze all available workflows')
     parser.add_argument('--no-save', action='store_true',
@@ -240,14 +245,15 @@ def main():
     
     if args.all:
         # Analyze all workflows
-        results = analyze_multiple_workflows(ior_data_path=args.ior_data)
+        results = analyze_multiple_workflows(ior_data_path=args.ior_data, csv_filename=args.csv_filename)
         print(f"\nCompleted analysis of {len(results)} workflows")
     else:
         # Analyze single workflow
         results = run_workflow_analysis(
             workflow_name=args.workflow,
             ior_data_path=args.ior_data,
-            save_results=not args.no_save
+            save_results=not args.no_save,
+            csv_filename=args.csv_filename
         )
         print(f"\nCompleted analysis of workflow: {args.workflow}")
     

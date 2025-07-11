@@ -181,7 +181,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
 
 
 def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str], 
-                    storage_type: str = "localssd", debug: bool = False) -> pd.DataFrame:
+                    storage_type: str = "localssd", debug: bool = False, csv_filename: str = "workflow_data.csv") -> pd.DataFrame:
     """Get workflow result DataFrame from test data."""
     wf_df = pd.DataFrame(columns=wf_params)
 
@@ -198,6 +198,32 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
     for trial_folder in wf_trial_folders:
         blk_files = glob.glob(f"{trial_folder}/*_blk_trace.json")
         datalife_monitor = glob.glob(f"{trial_folder}/*.datalife.json")
+        
+        # Check if this is a template workflow with pre-processed CSV data
+        workflow_csv = os.path.join(trial_folder, csv_filename)
+        if len(blk_files) == 0 and len(datalife_monitor) == 0 and os.path.exists(workflow_csv):
+            if debug:
+                print(f"Loading pre-processed workflow data from: {workflow_csv}")
+            try:
+                csv_df = pd.read_csv(workflow_csv)
+                # Ensure all required columns exist
+                for col in wf_params:
+                    if col not in csv_df.columns:
+                        csv_df[col] = ''
+                # Reorder columns to match expected format
+                csv_df = csv_df[wf_params]
+                # For CSV data, preserve existing task names and stage orders
+                if 'taskName' in csv_df.columns and 'stageOrder' in csv_df.columns:
+                    # Don't overwrite task names - they're already correct in CSV
+                    pass
+                wf_df = pd.concat([wf_df, csv_df], ignore_index=True)
+                if debug:
+                    print(f"Loaded {len(csv_df)} records from CSV")
+                continue
+            except Exception as e:
+                if debug:
+                    print(f"Error loading CSV: {e}")
+        
         target_tasks = get_stat_file_pids(blk_files)
         if debug:
             print(f"blk_files count: {len(blk_files)}")
@@ -246,14 +272,15 @@ def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str],
 
 
 def get_test_folder_dfs(test_folders: List[str], wf_params: List[str], 
-                       target_tasks: List[str], storage_type: str = "pfs", exp_data_path: str = "./", debug: bool = False) -> pd.DataFrame:
+                       target_tasks: List[str], storage_type: str = "pfs", exp_data_path: str = "./", 
+                       debug: bool = False, csv_filename: str = "workflow_data.csv") -> pd.DataFrame:
     """Get DataFrame for multiple test folders."""
     folder_dfs = pd.DataFrame(columns=wf_params)
     
     for test_folder in test_folders:
         # Construct the full path for the test folder
         full_test_path = f"{exp_data_path}/{test_folder}"
-        wf_df = get_wf_result_df(full_test_path, wf_params, target_tasks, storage_type, debug)
+        wf_df = get_wf_result_df(full_test_path, wf_params, target_tasks, storage_type, debug, csv_filename)
         if len(wf_df) > 0:
             folder_dfs = pd.concat([folder_dfs, wf_df], ignore_index=True)
         
@@ -369,13 +396,14 @@ def assign_task_names(tasks: Dict[str, Dict[str, Any]],
     return tasks
 
 
-def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False) -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
+def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filename: str = "workflow_data.csv") -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
     """
     Load and process workflow data.
     
     Parameters:
     - wf_name: Name of the workflow to load
     - debug: Whether to enable debug print statements
+    - csv_filename: Name of the CSV file to load (default: "workflow_data.csv")
     
     Returns:
     - DataFrame: Processed workflow data
@@ -396,7 +424,7 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False) -> Tuple[
         task_order_dict = json.load(f)
     
     # Get workflow data
-    wf_df = get_test_folder_dfs(test_folders, WF_PARAMS, TARGET_TASKS, storage_type="pfs", exp_data_path=exp_data_path, debug=debug)
+    wf_df = get_test_folder_dfs(test_folders, WF_PARAMS, TARGET_TASKS, storage_type="pfs", exp_data_path=exp_data_path, debug=debug, csv_filename=csv_filename)
     
     # Get workflow PID script dictionary
     all_wf_dict = get_wf_pid_script_dict(test_folders, exp_data_path)
@@ -406,14 +434,17 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False) -> Tuple[
     
     # Add task information to DataFrame
     wf_df['prevTask'] = ""
-    wf_df['taskName'] = "unknown"
+    # Only set taskName to "unknown" if it doesn't already exist (for CSV data)
+    if 'taskName' not in wf_df.columns:
+        wf_df['taskName'] = "unknown"
     
-    # Update DataFrame with task information
-    for task_pid, task_info in all_wf_dict.items():
-        mask = wf_df['taskPID'] == task_pid
-        wf_df.loc[mask, 'taskName'] = task_info['taskName']
-        wf_df.loc[mask, 'prevTask'] = task_info.get('prevTask', '')
-        wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 0)
+    # Update DataFrame with task information (only if all_wf_dict is not empty)
+    if all_wf_dict:
+        for task_pid, task_info in all_wf_dict.items():
+            mask = wf_df['taskPID'] == task_pid
+            wf_df.loc[mask, 'taskName'] = task_info['taskName']
+            wf_df.loc[mask, 'prevTask'] = task_info.get('prevTask', '')
+            wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 0)
     
     # Additional logic to properly assign prevTask for read operations based on file patterns
     # This matches the logic from the original notebook
