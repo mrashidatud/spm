@@ -11,7 +11,7 @@ NORMALIZE = False
 DEBUG = True
 
 # Storage types
-STORAGE_LIST = ['localssd', 'beegfs', 'tmpfs'] # 'nfs', 'pfs'
+STORAGE_LIST = ['ssd', 'beegfs', 'tmpfs'] # 'nfs', 'pfs'
 
 # Data size mappings in KB
 DATA_SIZE_KB = {
@@ -36,62 +36,6 @@ OP_DICT = {0: "write", 1: "read"}
 
 # Test configurations for different workflows
 TEST_CONFIGS = {
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_t1"]
-    },
-    "template_workflow": {
-        "SCRIPT_ORDER": "template_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 2, 4, 8],
-        "exp_data_path": "./template_workflow",
-        "test_folders": ["template_run"]
-    },
     "ddmd_2n_s": {  # old data, less I/O intensive
         "SCRIPT_ORDER": "ddmd_script_order",
         "NUM_NODES_LIST": [1, 2, 4],
@@ -113,11 +57,11 @@ TEST_CONFIGS = {
         "exp_data_path": "./1kgenome", 
         "test_folders": ['par_6000_10n_nfs_ps300'] 
     },
-    "1kg_2": {
+    "1kg_2": { # running as 10 nodes strictly
         "SCRIPT_ORDER": "1kg_script_order",
         "NUM_NODES_LIST": [10],
-        "ALLOWED_PARALLELISM": [1],
-        "exp_data_path": "./1kgenome/spm_tests", 
+        "ALLOWED_PARALLELISM": [1, 30],
+        "exp_data_path": "./1kgenome", 
         "test_folders": ['par_6000_10n_pfs_ps300'] 
     },
     "pyflex_240f": {
@@ -130,7 +74,7 @@ TEST_CONFIGS = {
     "pyflex_s9_48f": {
         "SCRIPT_ORDER": "pyflextrkr_s9_script_order",
         "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 12],
+        "ALLOWED_PARALLELISM": [1, 12, 24],
         "exp_data_path": "./pyflextrkr",
         "test_folders": ['summer_sam_4n_pfs_s9']
     },

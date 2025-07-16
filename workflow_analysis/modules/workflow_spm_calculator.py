@@ -58,7 +58,7 @@ def is_valid_storage_match(prod_storage, cons_storage, prod_task_name=None, cons
     # Case 3: General cross-storage matching for cp/scp operations
     # If producer is single storage
     if '-' not in prod_storage:
-        if prod_storage == "beegfs" and cons_storage == "beegfs-ssd":
+        if prod_storage == "beegfs" and cons_storage in ("beegfs-ssd", "beegfs-tmpfs"):
             return True
         if prod_storage == "ssd" and cons_storage in ("ssd-ssd", "ssd-beegfs"):
             return True

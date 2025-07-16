@@ -19,7 +19,7 @@ from .workflow_config import (
 def transform_store_code(storage_type: str) -> int:
     """Transform storage type string to numeric code."""
     storage_mapping = {
-        "localssd": 0,
+        "ssd": 0,
         "beegfs": 1,
         "lustre": 2,
         "tmpfs": 3,
@@ -32,7 +32,7 @@ def transform_store_code(storage_type: str) -> int:
 def decode_store_code(store_code: int) -> str:
     """Decode numeric storage code to string."""
     mapping = {
-        0: "localssd",
+        0: "ssd",
         1: "beegfs",
         2: "lustre",
         3: "tmpfs",
@@ -181,7 +181,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
 
 
 def get_wf_result_df(tests: str, wf_params: List[str], target_tasks: List[str], 
-                    storage_type: str = "localssd", debug: bool = False, csv_filename: str = "workflow_data.csv") -> pd.DataFrame:
+                    storage_type: str = "ssd", debug: bool = False, csv_filename: str = "workflow_data.csv") -> pd.DataFrame:
     """Get workflow result DataFrame from test data."""
     wf_df = pd.DataFrame(columns=wf_params)
 
