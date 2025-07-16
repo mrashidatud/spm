@@ -16,7 +16,7 @@ The tools are designed to process IOR benchmark JSON files and cp benchmark data
 - **tasksPerNode**: tasks per node
 - **parallelism**: total parallelism (numTasks * numNodes)
 - **trMiB**: throughput in MiB/s
-- **storageType**: storage system type (beegfs, localssd, nfs, tmpfs, or cp types like beegfs-ssd, ssd-ssd, etc.)
+- **storageType**: storage system type (beegfs, ssd, nfs, tmpfs, or cp types like beegfs-ssd, ssd-ssd, etc.)
 
 ## Files
 
@@ -44,7 +44,7 @@ ior_data/
 │   └── ...
 ├── beegfs_pior_buffered_2n/
 │   └── ...
-├── localssd_pior_buffered_1n/
+├── ssd_pior_buffered_1n/
 │   └── ...
 ├── nfs_pior_buffered_1n/
 │   └── ...
@@ -57,7 +57,7 @@ The cp benchmark data is stored in:
 ```
 cp_data/
 ├── beegfs_cp_1n/
-├── localssd_cp_1n/
+├── ssd_cp_1n/
 ├── nfs_cp_1n/
 └── tmpfs_cp_1n/
 ```
@@ -110,7 +110,7 @@ save_master_ior_df(df_averaged, "master_ior_df_averaged.csv")
 **Averaging Logic:**
 - If a benchmark has multiple trials, calculate the mean of `trMiB` and `totalTime`
 - If a benchmark has only one trial, keep that row as-is
-- All averaged rows are marked with `ave_` prefix (e.g., `ave_beegfs`, `ave_localssd`)
+- All averaged rows are marked with `ave_` prefix (e.g., `ave_beegfs`, `ave_ssd`)
 
 ### 4. Combined Data Analysis
 
@@ -144,7 +144,7 @@ This script will:
 
 ```python
 # Collect data for specific storage types only
-selected_storage_types = ['beegfs', 'localssd']  # Exclude nfs and tmpfs
+selected_storage_types = ['beegfs', 'ssd']  # Exclude nfs and tmpfs
 df_filtered = collect_ior_data(data_dir, storage_types=selected_storage_types)
 save_master_ior_df(df_filtered, "master_ior_df_filtered.csv")
 ```
@@ -261,7 +261,7 @@ Cleaned ior_data_beegfs.csv:
   Cleaned records: 4748
   Removed records: 1664
 
-Cleaned ior_data_localssd.csv:
+Cleaned ior_data_ssd.csv:
   Original records: 7516
   Cleaned records: 5596
   Removed records: 1920
@@ -390,6 +390,6 @@ The JSON files should contain:
 The cp benchmark data should be structured to match the IOR data format for combined analysis.
 
 ### Storage Type Naming Convention
-- **IOR data**: `beegfs`, `localssd`, `nfs`, `tmpfs`
-- **Averaged IOR data**: `ave_beegfs`, `ave_localssd`, `ave_nfs`, `ave_tmpfs`
+- **IOR data**: `beegfs`, `ssd`, `nfs`, `tmpfs`
+- **Averaged IOR data**: `ave_beegfs`, `ave_ssd`, `ave_nfs`, `ave_tmpfs`
 - **CP data**: `beegfs-ssd`, `ssd-beegfs`, `beegfs-tmpfs`, `tmpfs-beegfs`, `ssd-ssd`, `tmpfs-tmpfs` 
