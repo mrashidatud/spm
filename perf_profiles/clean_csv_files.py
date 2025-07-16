@@ -41,7 +41,7 @@ def main():
     # List of CSV files to clean
     csv_files = [
         'ior_data_beegfs.csv',
-        'ior_data_localssd.csv', 
+        'ior_data_ssd.csv', 
         'ior_data_nfs.csv',
         'ior_data_tmpfs.csv'
     ]

@@ -79,7 +79,7 @@ def test_averaged_statistics():
     
     # # Export individual averaged CSV files
     # print("\nExporting individual averaged CSV files...")
-    # for storage_type in ['beegfs', 'localssd', 'nfs', 'tmpfs']:
+    # for storage_type in ['beegfs', 'ssd', 'nfs', 'tmpfs']:
     #     averaged_storage_type = f'ave_{storage_type}'
     #     if averaged_storage_type in averaged_df['storageType'].unique():
     #         storage_df = averaged_df[averaged_df['storageType'] == averaged_storage_type]

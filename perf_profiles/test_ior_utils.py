@@ -61,7 +61,7 @@ def test_ior_utils():
     # Test 4: Test storage type filtering during collection
     print("\n3. Testing storage type filtering during collection...")
     try:
-        selected_storage_types = ['beegfs', 'localssd']
+        selected_storage_types = ['beegfs', 'ssd']
         filtered_df = collect_ior_data(data_dir, storage_types=selected_storage_types)
         print(f"✓ Collected data for {selected_storage_types}: {len(filtered_df)} records")
         print(f"  Storage types in filtered data: {sorted(filtered_df['storageType'].unique())}")

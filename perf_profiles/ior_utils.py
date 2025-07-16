@@ -92,7 +92,7 @@ def collect_ior_data(data_dir: str, storage_types: Optional[List[str]] = None) -
     
     Args:
         data_dir: Directory containing IOR benchmark data
-        storage_types: List of storage types to include (e.g., ['beegfs', 'localssd'])
+        storage_types: List of storage types to include (e.g., ['beegfs', 'ssd'])
                       If None, includes all storage types
     
     Returns:
@@ -463,6 +463,6 @@ if __name__ == "__main__":
     export_storage_data(df, clean_data=True)
     
     # Example: Filter for specific storage types
-    print("\nFiltering for beegfs and localssd only...")
-    filtered_df = collect_ior_data(data_dir, storage_types=['beegfs', 'localssd'])
+    print("\nFiltering for beegfs and ssd only...")
+    filtered_df = collect_ior_data(data_dir, storage_types=['beegfs', 'ssd'])
     save_master_ior_df(filtered_df, 'master_ior_df_filtered.csv')

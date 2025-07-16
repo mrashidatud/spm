@@ -174,7 +174,7 @@ def concat_csv_files_ave():
     
     # # Export individual averaged CSV files for each storage type
     # print(f"\nExporting individual averaged CSV files...")
-    # for storage_type in ['beegfs', 'localssd', 'nfs', 'tmpfs']:
+    # for storage_type in ['beegfs', 'ssd', 'nfs', 'tmpfs']:
     #     averaged_storage_type = f'ave_{storage_type}'
     #     if averaged_storage_type in combined_df['storageType'].unique():
     #         storage_df = combined_df[combined_df['storageType'] == averaged_storage_type]
