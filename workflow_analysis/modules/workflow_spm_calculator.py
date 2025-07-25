@@ -443,14 +443,26 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                             if prod_storage != cons_storage:
                                                 continue
                                         
-                                        if prod_ts_slope > 0:
-                                            estT_prod = prod_opCount * prod_aggregateFilesizeMB / prod_estimated_trMiB
-                                        else:
-                                            estT_prod = (1/prod_opCount) * prod_aggregateFilesizeMB / prod_estimated_trMiB
-                                        if cons_ts_slope > 0:
-                                            estT_cons = cons_opCount * cons_aggregateFilesizeMB / cons_estimated_trMiB 
-                                        else:
-                                            estT_cons = (1/cons_opCount) * cons_aggregateFilesizeMB / cons_estimated_trMiB
+                                        # # estimated time calculation with op Count skewer
+                                        # if prod_ts_slope > 0:
+                                        #     estT_prod = prod_opCount * prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                        # else:
+                                        #     estT_prod = (1/prod_opCount) * prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                        # if cons_ts_slope > 0:
+                                        #     estT_cons = cons_opCount * cons_aggregateFilesizeMB / cons_estimated_trMiB 
+                                        # else:
+                                        #     estT_cons = (1/cons_opCount) * cons_aggregateFilesizeMB / cons_estimated_trMiB
+                                        
+                                        # estimated time calculation without op Count skewer
+                                        estT_prod = prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                        estT_cons = cons_aggregateFilesizeMB / cons_estimated_trMiB
+
+                                        if debug:
+                                            if estT_prod < 0:
+                                                print(f"estT_prod: {estT_prod}, prod_estimated_trMiB: {prod_estimated_trMiB}")
+                                            if estT_cons < 0:
+                                                print(f"estT_prod: {estT_prod}, cons_estimated_trMiB: {cons_estimated_trMiB}")
+
                                         SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
                                         # Use both parallelisms in the key
                                         edge_key = f'{cons_storage}_{n_prod.replace("p", "")}_{n_cons}'
@@ -625,15 +637,28 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                         if prod_storage != cons_storage:
                                             continue
                                     
-                                    if prod_ts_slope > 0:
-                                        estT_prod = prod_opCount * prod_aggregateFilesizeMB / prod_estimated_trMiB
-                                    else:
-                                        estT_prod = (1/prod_opCount) * prod_aggregateFilesizeMB / prod_estimated_trMiB
-                                    if cons_ts_slope > 0:
-                                        estT_cons = cons_opCount * cons_aggregateFilesizeMB / cons_estimated_trMiB 
-                                    else:
-                                        estT_cons = (1/cons_opCount) * cons_aggregateFilesizeMB / cons_estimated_trMiB
+                                    # # estimated time calculation with op Count skewer
+                                    # if prod_ts_slope > 0:
+                                    #     estT_prod = prod_opCount * prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                    # else:
+                                    #     estT_prod = (1/prod_opCount) * prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                    # if cons_ts_slope > 0:
+                                    #     estT_cons = cons_opCount * cons_aggregateFilesizeMB / cons_estimated_trMiB 
+                                    # else:
+                                    #     estT_cons = (1/cons_opCount) * cons_aggregateFilesizeMB / cons_estimated_trMiB
+                                    
+
+                                    # estimated time calculation without op Count skewer
+                                    estT_prod = prod_aggregateFilesizeMB / prod_estimated_trMiB
+                                    estT_cons = cons_aggregateFilesizeMB / cons_estimated_trMiB
                                     SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
+
+                                    if debug:
+                                        if estT_prod < 0:
+                                            print(f"estT_prod: {estT_prod}, prod_estimated_trMiB: {prod_estimated_trMiB}")
+                                        if estT_cons < 0:
+                                            print(f"estT_prod: {estT_prod}, cons_estimated_trMiB: {cons_estimated_trMiB}")
+
                                     # Use both parallelisms in the key
                                     edge_key = f'{cons_storage}_{n_prod.replace("p", "")}_{n_cons}'
                                     edge_attributes[f'estT_prod_{prod_storage}_{n_prod}'] = estT_prod

@@ -277,6 +277,12 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
                 if ts_slope is not None:
                     wf_pfs_df.at[index, col_name_ts_slope] = float(ts_slope)
 
+                # Debug: Check for negative transfer rate
+                if estimated_trMiB_storage is not None and estimated_trMiB_storage < 0:
+                    print(f"[NEGATIVE TRANSFER RATE] Task: {task_name}, Operation: {operation}, Storage: {storage}, Parallelism: {parallelism}, "
+                          f"aggregateFilesizeMB: {aggregateFilesizeMB}, numNodes: {numNodes}, transfer_size: {transfer_size}, "
+                          f"col_name: {col_name_tr_storage}, estimated_trMiB_storage: {estimated_trMiB_storage}, ts_slope: {ts_slope}")
+
                 if debug and is_staging_task:
                     print(f"Staging Task[{task_name}] Storage[{storage}] "
                           f"Parallelism[{parallelism}] aggregateFilesizeMB[{aggregateFilesizeMB}] "
@@ -286,46 +292,46 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
                           f"Parallelism[{parallelism}] aggregateFilesizeMB[{aggregateFilesizeMB}] "
                           f"-> {col_name_tr_storage} = {estimated_trMiB_storage}")
 
-    # Debug: Summary of staging tasks processed
-    if debug:
-        stage_tasks_processed = wf_pfs_df[wf_pfs_df['taskName'].str.contains('stage_in|stage_out', na=False)]
-        print(f"\nTransfer rate estimation completed.")
-        print(f"Total staging tasks processed: {len(stage_tasks_processed)}")
-        if not stage_tasks_processed.empty:
-            print("Sample staging tasks with transfer rates:")
-            sample_cols = ['taskName', 'operation', 'storageType'] + [col for col in wf_pfs_df.columns if 'estimated_trMiB_' in col]
-            print(stage_tasks_processed[sample_cols].head(3))
-
     return wf_pfs_df
 
 
 def calculate_aggregate_filesize_per_node(wf_df: pd.DataFrame) -> pd.DataFrame:
     """
-    Calculate aggregate file size per node by grouping by taskName and numNodes.
-    
-    Parameters:
-    - wf_df: Workflow DataFrame
-    
-    Returns:
-    - DataFrame: Updated DataFrame with aggregateFilesizeMB calculated per node
+    Calculate aggregate file size per node for each unique (taskName, operation).
+    For each (taskName, operation), sum 'aggregateFilesizeMBtask' for all rows, then divide by the length of the 'numNodesList' (if available),
+    and assign this value to 'aggregateFilesizeMB' for all those rows.
+    Handles four operation types: 'cp', 'scp', 0 (write), and 1 (read).
     """
     # Step 1: Rename the original column to preserve it
-    result_df = wf_df.rename(columns={"aggregateFilesizeMB": "aggregateFilesizeMBtask"})
+    result_df = wf_df.rename(columns={"aggregateFilesizeMB": "aggregateFilesizeMBtask"}).copy()
+    result_df["aggregateFilesizeMB"] = None
 
-    # Step 2: Group by taskName and numNodes, compute sum, then divide by numNodes
-    group_sums = (
-        result_df
-        .groupby(["taskName", "numNodes"], as_index=False)["aggregateFilesizeMBtask"]
-        .sum()
-    )
+    # Define all operation types
+    operation_types = ["cp", "scp", 0, 1]
 
-    # Step 3: Compute the new aggregateFilesizeMB as sum / numNodes
-    group_sums["aggregateFilesizeMB"] = group_sums["aggregateFilesizeMBtask"] / group_sums["numNodes"]
+    for task_name in result_df["taskName"].unique():
+        task_df = result_df[result_df["taskName"] == task_name]
+        for op in operation_types:
+            op_df = task_df[task_df["operation"] == op]
+            if op_df.empty:
+                continue
+            agg_sum = op_df["aggregateFilesizeMBtask"].sum()
+            # I/O entries are expanded based on numNodesList
+            num_nodes_list = op_df["numNodesList"].iloc[0] if "numNodesList" in op_df.columns else None
+            if isinstance(num_nodes_list, (list, tuple)):
+                divisor = len(num_nodes_list)
+            else:
+                # Try to parse if it's a string representation of a list
+                try:
+                    import ast
+                    parsed = ast.literal_eval(num_nodes_list) if isinstance(num_nodes_list, str) else None
+                    divisor = len(parsed) if isinstance(parsed, (list, tuple)) else 1
+                except Exception:
+                    divisor = 1
+            if divisor == 0:
+                divisor = 1
+            agg_per_node = agg_sum / divisor
+            idx = (result_df["taskName"] == task_name) & (result_df["operation"] == op)
+            result_df.loc[idx, "aggregateFilesizeMB"] = agg_per_node
 
-    # Step 4: Keep only the new column and keys for merging
-    group_sums = group_sums[["taskName", "numNodes", "aggregateFilesizeMB"]]
-
-    # Step 5: Merge back to the original dataframe
-    result_df = result_df.merge(group_sums, on=["taskName", "numNodes"], how="left")
-    
     return result_df 

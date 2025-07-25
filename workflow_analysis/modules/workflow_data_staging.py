@@ -28,10 +28,22 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
         for i in range(0, len(files), max_parallelism):
             group = files.iloc[i:i+max_parallelism]
             file_names = group['fileName'].tolist()
-            agg_size = group['aggregateFilesizeMBtask'].sum()
+            # For each file_name, get the largest aggregateFilesizeMBtask from the original DataFrame
+            max_sizes = []
+            for fname in file_names:
+                # Find all rows in the original DataFrame with this fileName
+                matches = wf_df[wf_df['fileName'] == fname]
+                if not matches.empty:
+                    # get minimum of aggregateFilesizeMBtask for each file_name
+                    max_size = matches['aggregateFilesizeMBtask'].min()
+                else:
+                    max_size = 0
+                max_sizes.append(max_size)
+            agg_size = sum(max_sizes)
             parallelism = len(group)
             file_groups.append((file_names, agg_size, parallelism, group))
         return file_groups
+    
 
     # 1. Initial data movement (stageOrder==0, operation==1)
     initial_rows = wf_df[(wf_df['stageOrder'] == 0) & (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read'))]
