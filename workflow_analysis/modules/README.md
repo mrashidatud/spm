@@ -27,26 +27,36 @@ from workflow_config import MULTI_NODES, STORAGE_LIST, TEST_CONFIGS, DEFAULT_WF
 
 **Key Functions**:
 - `load_workflow_data(workflow_name)`: Load workflow data from CSV files
+- `standardize_operation(operation)`: Convert any operation format to standardized string format
 - `transform_store_code(storage_name)`: Convert storage names to numeric codes
 - `decode_store_code(code)`: Convert numeric codes back to storage names
 - `bytes_to_mb(size_string)`: Convert size strings to MB
 - `calculate_io_time_breakdown()`: Calculate I/O time breakdown for tasks
 
+**Key Features**:
+- **Operation Standardization**: Automatically converts all operations to standardized string format ('write', 'read', 'cp', 'scp', 'none')
+- **Flexible Input Handling**: Accepts operations as integers, strings, or numeric strings
+- **Data Consistency**: Ensures all operations are consistently formatted throughout the system
+
 **Inputs**: 
 - Workflow name string
 - CSV data files
 - Size strings in various formats
+- Operations in any format (integer, string, or numeric string)
 
 **Outputs**: 
-- Processed DataFrame
+- Processed DataFrame with standardized string operations
 - Task order dictionaries
 - I/O time breakdowns
 - Transformed data structures
 
 **Usage**:
 ```python
-from workflow_data_utils import load_workflow_data, calculate_io_time_breakdown
+from workflow_data_utils import load_workflow_data, calculate_io_time_breakdown, standardize_operation
 wf_df, task_order, wf_dict = load_workflow_data("ddmd_4n_l")
+
+# Standardize operations manually if needed
+operation_str = standardize_operation(0)  # Returns 'write'
 ```
 
 ### 3. `workflow_interpolation.py`
@@ -63,10 +73,11 @@ wf_df, task_order, wf_dict = load_workflow_data("ddmd_4n_l")
 - **Enhanced Debugging**: Detailed debugging output to identify data quality issues
 - **Data Quality Checks**: Validation of input data for negative values and NaN entries
 - **Improved Interpolation Logic**: Uses median of positive values instead of simple averaging
+- **Flexible Operation Handling**: Supports both string and numeric operations with automatic conversion
 
 **Inputs**:
 - IOR benchmark data DataFrame (with string operations: 'write', 'read', 'cp', 'scp')
-- Workflow DataFrame with task information (with integer operations: 0, 1)
+- Workflow DataFrame with task information (with standardized string operations)
 - Target parameters (operation, file size, nodes, parallelism, transfer size)
 - Debug flag for detailed output
 
@@ -76,10 +87,11 @@ wf_df, task_order, wf_dict = load_workflow_data("ddmd_4n_l")
 - Updated workflow DataFrame with estimated values
 - Debug information about data quality and interpolation process
 
-**Operation Mapping**:
-The function automatically maps workflow integer operations to IOR string operations:
-- Workflow operation 0 → IOR operation 'write'
-- Workflow operation 1 → IOR operation 'read'
+**Operation Handling**:
+The function handles operations flexibly:
+- Accepts both string operations ('write', 'read', 'cp', 'scp') and numeric operations (0, 1)
+- Automatically converts numeric operations to strings internally
+- Maps workflow operations to IOR benchmark operations consistently
 
 **Error Handling**:
 - Validates that all input data values are positive
@@ -110,6 +122,7 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - `add_workflow_graph_nodes()`: Add nodes to workflow graph
 - `add_producer_consumer_edge()`: Add edges between producer-consumer pairs
 - `calculate_spm_for_workflow()`: Calculate SPM values for entire workflow
+- `convert_operation_to_string()`: Convert numeric operations to string operations
 - `filter_storage_options()`: Filter storage options based on workflow constraints
 - `select_best_storage_and_parallelism()`: Select optimal storage and parallelism
 - `normalize_estT_values()`: Normalize estimated time values
@@ -120,9 +133,10 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - **Robust Error Handling**: Graceful handling of edge cases and invalid data
 - **Enhanced Debugging**: Detailed warnings and error messages for troubleshooting
 - **Improved Edge Detection**: Better handling of stage_in and stage_out operations
+- **Operation Standardization**: Converts numeric operations to strings for consistent processing
 
 **Inputs**:
-- Workflow DataFrame with estimated transfer rates
+- Workflow DataFrame with estimated transfer rates and standardized string operations
 - Workflow configuration
 - Storage and parallelism constraints
 - Debug flag for detailed output
@@ -134,6 +148,11 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - Best storage and parallelism selections
 - Validation warnings and error messages
 
+**Operation Handling**:
+- Uses `convert_operation_to_string()` to ensure consistent string operations
+- Supports both numeric and string operations with automatic conversion
+- Handles cp/scp operations for storage type transitions
+
 **Validation Features**:
 - Validates that aggregateFilesizeMB values are positive
 - Ensures estimated transfer rates are positive
@@ -142,7 +161,7 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 
 **Usage**:
 ```python
-from workflow_spm_calculator import calculate_spm_for_workflow, filter_storage_options
+from workflow_spm_calculator import calculate_spm_for_workflow, filter_storage_options, convert_operation_to_string
 # Basic usage
 spm_results = calculate_spm_for_workflow(wf_df)
 
@@ -150,6 +169,9 @@ spm_results = calculate_spm_for_workflow(wf_df)
 spm_results = calculate_spm_for_workflow(wf_df, debug=True)
 
 filtered_results = filter_storage_options(spm_results, "ddmd_4n_l")
+
+# Convert operations manually if needed
+op_str = convert_operation_to_string(0)  # Returns 'write'
 ```
 
 ### 5. `workflow_visualization.py`
@@ -202,7 +224,36 @@ from workflow_analysis_main import run_workflow_analysis
 results = run_workflow_analysis("ddmd_4n_l", save_results=True)
 ```
 
-### 7. `workflow_results_exporter.py`
+### 7. `workflow_data_staging.py`
+**Purpose**: Insert data staging (I/O) rows into workflow DataFrame to simulate data stage_in and stage_out operations.
+
+**Key Functions**:
+- `insert_data_staging_rows()`: Insert staging rows for data movement between storage types
+- `get_file_groups()`: Group files for parallel processing with max parallelism limits
+
+**Key Features**:
+- **Storage Type Transitions**: Handles transitions between different storage types (beegfs-ssd, beegfs-tmpfs, etc.)
+- **Operation Standardization**: Uses `standardize_operation()` for consistent string operations
+- **Parallelism Management**: Splits operations by max parallelism of 60 files per row
+- **Stage Simulation**: Simulates stage_in and stage_out operations for workflow analysis
+
+**Inputs**:
+- Workflow DataFrame with standardized string operations
+- Debug flag for detailed output
+
+**Outputs**:
+- Enhanced workflow DataFrame with staging rows
+- Data movement operations between storage types
+- Stage_in and stage_out task simulations
+
+**Usage**:
+```python
+from workflow_data_staging import insert_data_staging_rows
+# Add staging rows to workflow DataFrame
+enhanced_wf_df = insert_data_staging_rows(wf_df, debug=True)
+```
+
+### 8. `workflow_results_exporter.py`
 **Purpose**: Export producer-consumer storage selection and parallelism results to CSV format and generate detailed reports.
 
 **Key Functions**:
@@ -234,7 +285,9 @@ print_storage_analysis(results_df)
 ```
 workflow_config.py (Configuration)
          ↓
-workflow_data_utils.py (Data Loading)
+workflow_data_utils.py (Data Loading & Operation Standardization)
+         ↓
+workflow_data_staging.py (Data Staging Operations)
          ↓
 workflow_interpolation.py (Transfer Rate Estimation)
          ↓
@@ -249,24 +302,37 @@ workflow_analysis_main.py (Orchestration)
 
 ## Operation Code Handling
 
-The modules handle operation codes differently for workflow data and IOR benchmark data:
+The modules now use a standardized string-based approach for all operations throughout the system:
 
-### Workflow Data Operations (Integer)
-- **0**: Write operations  
-- **1**: Read operations
-
-### IOR Benchmark Data Operations (String)
+### Standardized Operation Strings
 - **'write'**: Write operations
 - **'read'**: Read operations
 - **'cp'**: Copy operations  
 - **'scp'**: Secure copy operations
+- **'none'**: No operation (for staging tasks)
 
-### Automatic Mapping
-The `estimate_transfer_rates_for_workflow()` function in `workflow_interpolation.py` automatically maps workflow integer operations to IOR string operations:
-- Workflow operation 0 → IOR operation 'write'
-- Workflow operation 1 → IOR operation 'read'
+### Operation Standardization Functions
 
-**Important**: When using IOR benchmark data, keep operations as strings. Do not convert them to integers, as the function handles the mapping internally.
+#### `standardize_operation()` in `workflow_data_utils.py`
+Converts any operation format (integer, string, or numeric string) to standardized string format:
+- `0` or `'0'` → `'write'`
+- `1` or `'1'` → `'read'`
+- `2` or `'2'` → `'cp'`
+- `3` or `'3'` → `'scp'`
+- `-1` or `'-1'` → `'none'`
+
+#### `convert_operation_to_string()` in `workflow_spm_calculator.py`
+Converts numeric operations to string operations for SPM calculations:
+- `0` → `'write'`
+- `1` → `'read'`
+
+### Automatic Standardization
+- **Data Loading**: All operations are automatically standardized to strings when loading workflow data
+- **Interpolation**: The system handles both string and numeric operations, converting them internally
+- **SPM Calculations**: Operations are converted to strings for consistent processing
+- **Staging Operations**: Uses standardized string operations for stage_in and stage_out tasks
+
+**Important**: The system now consistently uses string operations throughout all modules for better clarity and consistency.
 
 ## Dependencies
 
@@ -285,6 +351,7 @@ modules/
 ├── workflow_data_utils.py       # Data loading and utilities
 ├── workflow_interpolation.py    # Transfer rate estimation
 ├── workflow_spm_calculator.py   # SPM calculations
+├── workflow_data_staging.py     # Data staging operations
 ├── workflow_visualization.py    # Visualization and reporting
 ├── workflow_results_exporter.py # Results export to CSV
 └── workflow_analysis_main.py    # Main orchestration
@@ -322,7 +389,35 @@ csv_path = save_producer_consumer_results(spm_results, wf_df, workflow_name)
 
 ## Recent Improvements and Bug Fixes
 
-### Negative Value Prevention (Latest Update)
+### String Operation Standardization (Latest Update)
+**Issue**: Inconsistent operation representation across modules, mixing integers and strings for operations.
+
+**Solutions Implemented**:
+
+1. **Operation Standardization Functions**:
+   - **`standardize_operation()`** in `workflow_data_utils.py`: Converts any operation format to standardized strings
+   - **`convert_operation_to_string()`** in `workflow_spm_calculator.py`: Converts numeric operations to strings
+   - **Automatic Standardization**: All operations are now consistently represented as strings throughout the system
+
+2. **Enhanced Module Integration**:
+   - **`workflow_data_utils.py`**: Automatically standardizes operations during data loading
+   - **`workflow_interpolation.py`**: Handles both string and numeric operations with automatic conversion
+   - **`workflow_spm_calculator.py`**: Uses standardized string operations for consistent processing
+   - **`workflow_data_staging.py`**: Uses standardized operations for stage_in and stage_out tasks
+
+3. **Improved Data Consistency**:
+   - All CSV files now use consistent string operations ('write', 'read', 'cp', 'scp', 'none')
+   - Better clarity and consistency across the entire system
+   - Support for storage type transitions using cp/scp operations
+
+**Standardized Operation Mapping**:
+- `0` or `'0'` → `'write'`
+- `1` or `'1'` → `'read'`
+- `2` or `'2'` → `'cp'`
+- `3` or `'3'` → `'scp'`
+- `-1` or `'-1'` → `'none'`
+
+### Negative Value Prevention (Previous Update)
 **Issue**: Negative transfer rates and SPM values were being calculated due to extrapolation beyond data bounds and data quality issues.
 
 **Solutions Implemented**:

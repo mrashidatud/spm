@@ -392,4 +392,9 @@ The cp benchmark data should be structured to match the IOR data format for comb
 ### Storage Type Naming Convention
 - **IOR data**: `beegfs`, `ssd`, `nfs`, `tmpfs`
 - **Averaged IOR data**: `ave_beegfs`, `ave_ssd`, `ave_nfs`, `ave_tmpfs`
-- **CP data**: `beegfs-ssd`, `ssd-beegfs`, `beegfs-tmpfs`, `tmpfs-beegfs`, `ssd-ssd`, `tmpfs-tmpfs` 
+- **CP/SCP data**: `beegfs-ssd`, `ssd-beegfs`, `beegfs-tmpfs`, `tmpfs-beegfs`, `ssd-ssd`, `tmpfs-tmpfs`
+
+### Recent Updates
+The `updated_master_ior_df.csv` file has been updated to include additional SCP (secure copy) operations for storage type transitions, particularly for `tmpfs-tmpfs` operations. This enhancement supports the workflow analysis system's ability to model storage type changes between workflow stages.
+
+**Data Format Standardization**: All operations in the CSV files are now consistently represented as strings ('write', 'read', 'cp', 'scp') instead of numeric codes, providing better clarity and consistency across the dataset. 
