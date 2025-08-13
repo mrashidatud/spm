@@ -8,7 +8,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
     """
     Insert data staging (I/O) rows into the workflow DataFrame to simulate data stage_in and stage_out.
     Rules:
-    - Initial data movement from beegfs to ssd/tmpfs for stageOrder==0 tasks with operation==1 (read)
+    - Initial data movement from beegfs to ssd/tmpfs for stageOrder==0 tasks with operation=='read'
     - Intermediate data movement for each unique taskName with stageOrder >=1, for all combinations of [beegfs-ssd, beegfs-tmpfs, ssd-ssd, tmpfs-tmpfs]
     - Final data movement from tmpfs/ssd to beegfs for the last stage
     - Handles splitting by max parallelism of 60 files per row
@@ -23,66 +23,117 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
     # Helper: get unique files and their sizes for a set of rows
     def get_file_groups(rows):
         file_groups = []
-        files = rows[['taskPID', 'fileName', 'aggregateFilesizeMBtask']].drop_duplicates()
+        # Use the correct column name that exists in the DataFrame
+        files = rows[['taskPID', 'fileName', 'aggregateFilesizeMB']].drop_duplicates()
         files = files.reset_index(drop=True)
         for i in range(0, len(files), max_parallelism):
             group = files.iloc[i:i+max_parallelism]
-            file_names = group['fileName'].tolist()
-            # For each file_name, get the largest aggregateFilesizeMBtask from the original DataFrame
+            # Extract individual file names from potentially comma-separated fileName fields
+            all_file_names = []
+            for fileName in group['fileName'].tolist():
+                if ',' in fileName:
+                    # Split by comma and strip whitespace
+                    individual_files = [f.strip() for f in fileName.split(',')]
+                    all_file_names.extend(individual_files)
+                else:
+                    all_file_names.append(fileName)
+            
+            # Remove duplicates while preserving order
+            unique_file_names = []
+            seen = set()
+            for fname in all_file_names:
+                if fname not in seen:
+                    unique_file_names.append(fname)
+                    seen.add(fname)
+            
+            # For each file_name, get the largest aggregateFilesizeMB from the original DataFrame
             max_sizes = []
-            for fname in file_names:
+            for fname in unique_file_names:
                 # Find all rows in the original DataFrame with this fileName
                 matches = wf_df[wf_df['fileName'] == fname]
                 if not matches.empty:
-                    # get minimum of aggregateFilesizeMBtask for each file_name
-                    max_size = matches['aggregateFilesizeMBtask'].min()
+                    # get minimum of aggregateFilesizeMB for each file_name
+                    max_size = matches['aggregateFilesizeMB'].min()
                 else:
                     max_size = 0
                 max_sizes.append(max_size)
             agg_size = sum(max_sizes)
-            parallelism = len(group)
-            file_groups.append((file_names, agg_size, parallelism, group))
+            parallelism = len(unique_file_names)
+            file_groups.append((unique_file_names, agg_size, parallelism, group))
         return file_groups
     
 
-    # 1. Initial data movement (stageOrder==0, operation==1)
-    initial_rows = wf_df[(wf_df['stageOrder'] == 0) & (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read'))]
-    if debug:
-        print(f"Initial data movement: {len(initial_rows)} rows found.")
-    if not initial_rows.empty:
-        file_groups = get_file_groups(initial_rows)
-        numNodesList = initial_rows['numNodesList'].iloc[0] if 'numNodesList' in initial_rows.columns else [1]
-        if isinstance(numNodesList, str):
-            try:
-                numNodesList = eval(numNodesList)
-            except Exception:
-                numNodesList = [int(numNodesList)]
-        for storageType in ['beegfs-tmpfs', 'beegfs-ssd']:
-            for file_names, agg_size, parallelism, group in file_groups:
-                for numNodes in numNodesList:
-                    row = {
-                        'operation': 'cp',
-                        'randomOffset': 0,
-                        'transferSize': fsblocksize,
-                        'aggregateFilesizeMB': agg_size,
-                        'numTasks': parallelism,
-                        'parallelism': parallelism,
-                        'totalTime': '',
-                        'numNodesList': numNodesList,
-                        'numNodes': numNodes,
-                        'tasksPerNode': int(np.ceil(parallelism / numNodes)),
-                        'trMiB': '',
-                        'storageType': storageType,
-                        'opCount': parallelism,
-                        'taskName': f'stage_in-0',
-                        'taskPID': '',
-                        'fileName': ','.join(file_names),
-                        'stageOrder': -1,
-                        'prevTask': ''
-                    }
-                    staging_rows.append(row)
-                    if debug:
-                        print(f"Added initial data movement row: {row}")
+    # 1. Initial data movement (first stage with read operations)
+    # Find the first stage with read operations (may not be stage 0)
+    all_read_ops = wf_df[wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read')]
+    if len(all_read_ops) > 0:
+        first_stage_with_read = all_read_ops['stageOrder'].min()
+        initial_rows = wf_df[(wf_df['stageOrder'] == first_stage_with_read) & (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read'))]
+        if debug:
+            print(f"Initial data movement: {len(initial_rows)} rows found in stage {first_stage_with_read}.")
+        if not initial_rows.empty:
+            file_groups = get_file_groups(initial_rows)
+            numNodesList = initial_rows['numNodesList'].iloc[0] if 'numNodesList' in initial_rows.columns else [1]
+            if isinstance(numNodesList, str):
+                try:
+                    numNodesList = eval(numNodesList)
+                except Exception:
+                    numNodesList = [int(numNodesList)]
+            
+            actual_task_names = set()
+            for _, row in initial_rows.iterrows():
+                actual_task_names.add(row['taskName'])
+            
+            # Add actual data movement rows
+            for taskName in actual_task_names:
+                for storageType in ['beegfs-tmpfs', 'beegfs-ssd', 'beegfs']:
+                    for file_names, agg_size, parallelism, group in file_groups:
+                        for numNodes in numNodesList:
+                            if storageType == 'beegfs':
+                                row = {
+                                    'operation': 'none',  # No operation for stage_in pattern
+                                    'randomOffset': 0,
+                                    'transferSize': fsblocksize,
+                                    'aggregateFilesizeMB': agg_size,  # Use actual data size
+                                    'numTasks': parallelism,
+                                    'parallelism': parallelism,
+                                    'totalTime': 0,  # No time (virtual)
+                                    'numNodesList': numNodesList,
+                                    'numNodes': numNodes,
+                                    'tasksPerNode': int(np.ceil(parallelism / numNodes)),
+                                    'trMiB': 1.0,  # Dummy transfer rate to avoid division by zero
+                                    'storageType': 'beegfs',  # Virtual producer storage type
+                                    'opCount': parallelism,
+                                    'taskName': f'stage_in-{taskName}',  # Virtual producer task name matching expected pattern
+                                    'taskPID': '',
+                                    'fileName': ','.join(file_names),
+                                    'stageOrder': -1,
+                                    'prevTask': ''
+                                }
+                            else:
+                                row = {
+                                    'operation': 'cp',
+                                    'randomOffset': 0,
+                                    'transferSize': fsblocksize,
+                                    'aggregateFilesizeMB': agg_size,
+                                    'numTasks': parallelism,
+                                    'parallelism': parallelism,
+                                    'totalTime': '',
+                                    'numNodesList': numNodesList,
+                                    'numNodes': numNodes,
+                                    'tasksPerNode': int(np.ceil(parallelism / numNodes)),
+                                    'trMiB': '',
+                                    'storageType': storageType,
+                                    'opCount': parallelism,
+                                    'taskName': f'stage_in-{taskName}',
+                                    'taskPID': '',
+                                    'fileName': ','.join(file_names),
+                                    'stageOrder': -1,
+                                    'prevTask': ''
+                                }
+                            staging_rows.append(row)
+                            if debug:
+                                print(f"Added initial data movement row: {row}")
 
     # 2. Intermediate data movement (stageOrder >=1)
     for taskName, group in wf_df[wf_df['stageOrder'] >= 1].groupby('taskName'):
@@ -154,7 +205,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
                     if debug:
                         print(f"Added intermediate stage_out row: {row}")
 
-    # 2b. Insert stage-out for all tasks with write operations (operation == 0)
+    # 2b. Insert stage-out for all tasks with write operations (operation == 'write')
     write_rows = wf_df[wf_df['operation'].apply(lambda x: standardize_operation(x) == 'write')]
     for taskName, group in write_rows.groupby('taskName'):
         # Skip if taskName already contains 'stage_out' or 'stage_in'
@@ -242,6 +293,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
 
     # Combine and sort
     staging_df = pd.DataFrame(staging_rows)
+
     combined = pd.concat([wf_df, staging_df], ignore_index=True, sort=False)
     combined = combined.sort_values(['stageOrder', 'taskName']).reset_index(drop=True)
     if debug:

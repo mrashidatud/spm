@@ -50,36 +50,61 @@ wf_df, task_order, wf_dict = load_workflow_data("ddmd_4n_l")
 ```
 
 ### 3. `workflow_interpolation.py`
-**Purpose**: 4D interpolation and extrapolation for transfer rate estimation.
+**Purpose**: 4D interpolation and extrapolation for transfer rate estimation with robust error handling and validation.
 
 **Key Functions**:
-- `calculate_4d_interpolation_with_extrapolation()`: Perform 4D interpolation/extrapolation
+- `calculate_4d_interpolation_with_extrapolation()`: Perform 4D interpolation/extrapolation with negative value validation
 - `estimate_transfer_rates_for_workflow()`: Estimate transfer rates for all workflow tasks
 - `calculate_aggregate_filesize_per_node()`: Calculate aggregate file size per node
+
+**Key Features**:
+- **Negative Value Prevention**: Comprehensive validation to prevent negative transfer rates
+- **Robust Extrapolation**: Smart fallback strategies when extrapolation produces negative values
+- **Enhanced Debugging**: Detailed debugging output to identify data quality issues
+- **Data Quality Checks**: Validation of input data for negative values and NaN entries
+- **Improved Interpolation Logic**: Uses median of positive values instead of simple averaging
 
 **Inputs**:
 - IOR benchmark data DataFrame (with string operations: 'write', 'read', 'cp', 'scp')
 - Workflow DataFrame with task information (with integer operations: 0, 1)
 - Target parameters (operation, file size, nodes, parallelism, transfer size)
+- Debug flag for detailed output
 
 **Outputs**:
 - Estimated transfer rates for each storage type and parallelism level
 - Transfer size slopes for performance modeling
 - Updated workflow DataFrame with estimated values
+- Debug information about data quality and interpolation process
 
 **Operation Mapping**:
 The function automatically maps workflow integer operations to IOR string operations:
 - Workflow operation 0 → IOR operation 'write'
 - Workflow operation 1 → IOR operation 'read'
 
+**Error Handling**:
+- Validates that all input data values are positive
+- Prevents negative transfer rates through robust fallback strategies
+- Handles NaN values gracefully
+- Provides detailed warnings for data quality issues
+
+**Debug Features**:
+- Shows original IOR data analysis and negative value detection
+- Displays step-by-step filtering process
+- Reveals bounds calculation details and extrapolation formulas
+- Identifies data quality issues in source data
+
 **Usage**:
 ```python
 from workflow_interpolation import estimate_transfer_rates_for_workflow
+# Basic usage
 wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allowed_parallelism)
+
+# With debugging enabled
+wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allowed_parallelism, debug=True)
 ```
 
 ### 4. `workflow_spm_calculator.py`
-**Purpose**: SPM (Storage Performance Modeling) calculations and workflow graph construction.
+**Purpose**: SPM (Storage Performance Modeling) calculations and workflow graph construction with robust validation.
 
 **Key Functions**:
 - `add_workflow_graph_nodes()`: Add nodes to workflow graph
@@ -89,21 +114,41 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - `select_best_storage_and_parallelism()`: Select optimal storage and parallelism
 - `normalize_estT_values()`: Normalize estimated time values
 
+**Key Features**:
+- **Negative SPM Prevention**: Comprehensive validation to prevent negative SPM values
+- **Data Quality Validation**: Checks for negative or zero aggregateFilesizeMB values
+- **Robust Error Handling**: Graceful handling of edge cases and invalid data
+- **Enhanced Debugging**: Detailed warnings and error messages for troubleshooting
+- **Improved Edge Detection**: Better handling of stage_in and stage_out operations
+
 **Inputs**:
 - Workflow DataFrame with estimated transfer rates
 - Workflow configuration
 - Storage and parallelism constraints
+- Debug flag for detailed output
 
 **Outputs**:
 - NetworkX workflow graph
 - SPM values for producer-consumer pairs
 - Filtered storage options
 - Best storage and parallelism selections
+- Validation warnings and error messages
+
+**Validation Features**:
+- Validates that aggregateFilesizeMB values are positive
+- Ensures estimated transfer rates are positive
+- Prevents negative SPM calculations
+- Handles edge cases with zero or invalid values
 
 **Usage**:
 ```python
 from workflow_spm_calculator import calculate_spm_for_workflow, filter_storage_options
+# Basic usage
 spm_results = calculate_spm_for_workflow(wf_df)
+
+# With debugging enabled
+spm_results = calculate_spm_for_workflow(wf_df, debug=True)
+
 filtered_results = filter_storage_options(spm_results, "ddmd_4n_l")
 ```
 
@@ -273,4 +318,44 @@ csv_path = save_producer_consumer_results(spm_results, wf_df, workflow_name)
 - Configuration is centralized in `workflow_config.py`
 - Data flows from loading → processing → analysis → visualization
 - Each module can be used independently or as part of the complete pipeline
-- Error handling and logging are built into each module 
+- Error handling and logging are built into each module
+
+## Recent Improvements and Bug Fixes
+
+### Negative Value Prevention (Latest Update)
+**Issue**: Negative transfer rates and SPM values were being calculated due to extrapolation beyond data bounds and data quality issues.
+
+**Solutions Implemented**:
+
+1. **Enhanced Interpolation Validation** (`workflow_interpolation.py`):
+   - Added comprehensive validation to prevent negative transfer rates
+   - Implemented robust extrapolation logic with smart fallback strategies
+   - Added detailed debugging to identify data quality issues
+   - Improved interpolation logic using median of positive values
+   - Added step-by-step data filtering validation
+
+2. **SPM Calculation Validation** (`workflow_spm_calculator.py`):
+   - Added validation for negative or zero aggregateFilesizeMB values
+   - Implemented checks for negative estimated transfer rates
+   - Enhanced error handling for edge cases
+   - Added detailed warning messages for troubleshooting
+
+3. **Data Quality Checks**:
+   - Validation of input data for negative values and NaN entries
+   - Comprehensive debugging output to identify problematic data
+   - Graceful handling of edge cases with invalid values
+
+**Debug Features Added**:
+- Original IOR data analysis and negative value detection
+- Step-by-step filtering process visualization
+- Bounds calculation details and extrapolation formulas
+- Data quality issue identification in source data
+
+**Usage with Debugging**:
+```python
+# Enable debugging for detailed output
+wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, debug=True)
+spm_results = calculate_spm_for_workflow(wf_df, debug=True)
+```
+
+These improvements ensure that the workflow analysis produces physically meaningful, positive transfer rates and SPM values while providing detailed debugging information to identify and resolve data quality issues. 

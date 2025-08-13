@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 try:
     from .workflow_config import WF_PARAMS
 except ImportError:
-    from workflow_config import WF_PARAMS
+    from .workflow_config import WF_PARAMS
 
 
 def generate_template_workflow_data(
