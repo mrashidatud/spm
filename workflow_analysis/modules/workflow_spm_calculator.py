@@ -98,9 +98,11 @@ def is_valid_storage_match(prod_storage, cons_storage, prod_task_name=None, cons
                 if cons_storage == second:
                     return True
             # Handle case where producer has single storage (e.g., 'beegfs')
-            # This allows virtual producers with single storage to match with any consumer storage
+            # For stage_in tasks with operation "none", beegfs should match with compound storage types that start with "beegfs-" or with "beegfs"
             elif prod_storage == 'beegfs':
-                return True
+                # Allow beegfs to match with compound storage types that start with "beegfs-" or with "beegfs"
+                if cons_storage.startswith('beegfs-') or cons_storage == 'beegfs':
+                    return True
             return False
     
     # Case 3: Producer is taskName and consumer is stage_out-{taskName}
@@ -452,12 +454,6 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                         print(f"[WARNING] Negative/zero cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB} for {consumer_row['taskName']}")
                                     continue
                                 
-                                # Calculate estimated time based on operation type
-                                if prod_op == 'none':
-                                    estT_prod = 0.0  # Virtual producers have zero time
-                                else:
-                                    estT_prod = prod_aggregateFilesizeMB / prod_estimated_trMiB if prod_estimated_trMiB and prod_estimated_trMiB > 0 else 0.0
-                                
                                 for prod_key in prod_keys:
                                     try:
                                         n_prod = prod_key.split('_')[-1]  # e.g., '1p', '24p'
@@ -470,6 +466,20 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                         continue
                                     if prod_ts_slope is None or (isinstance(prod_ts_slope, float) and math.isnan(prod_ts_slope)):
                                         continue
+                                    
+                                    # Calculate estimated time based on operation type
+                                    if prod_op == 'none':
+                                        estT_prod = 0.0  # Virtual producers have zero time
+                                    else:
+                                        estT_prod = prod_aggregateFilesizeMB / prod_estimated_trMiB if prod_estimated_trMiB and prod_estimated_trMiB > 0 else 0.0
+                                    
+                                    # Debug output for stage_in tasks
+                                    if debug and prod_task_name.startswith('stage_in-'):
+                                        print(f"[DEBUG] Stage_in SPM calculation for {prod_task_name} -> {consumer_row['taskName']}:")
+                                        print(f"  Producer: {prod_storage}_{n_prod}, Consumer: {cons_storage}_{n_cons}")
+                                        print(f"  prod_aggregateFilesizeMB: {prod_aggregateFilesizeMB}")
+                                        print(f"  prod_estimated_trMiB: {prod_estimated_trMiB}")
+                                        print(f"  estT_prod: {estT_prod}")
                                     
                                     for cons_key in cons_keys:
                                         try:
@@ -490,17 +500,13 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                         else:
                                             estT_cons = cons_aggregateFilesizeMB / cons_estimated_trMiB
 
+                                        # Debug output for stage_in tasks (consumer side)
+                                        if debug and prod_task_name.startswith('stage_in-'):
+                                            print(f"  cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB}")
+                                            print(f"  cons_estimated_trMiB: {cons_estimated_trMiB}")
+                                            print(f"  estT_cons: {estT_cons}")
+
                                         # Validate that estT values are positive
-                                        # Stage_in tasks with operation "none" always have zero estT_prod
-                                        if estT_prod < 0:
-                                            if debug:
-                                                print(f"[WARNING] Negative estT_prod: {estT_prod}, prod_aggregateFilesizeMB: {prod_aggregateFilesizeMB}, prod_estimated_trMiB: {prod_estimated_trMiB}")
-                                            continue
-                                        # Allow zero estT_prod for stage_in tasks with operation "none" or when transfer rate is legitimately zero
-                                        if estT_prod == 0 and prod_op != 'none' and (prod_estimated_trMiB and prod_estimated_trMiB > 0):
-                                            if debug:
-                                                print(f"[WARNING] Zero estT_prod for non-virtual producer: {prod_task_name} op: {prod_op}")
-                                            continue
                                         if estT_cons <= 0:
                                             if debug:
                                                 print(f"[WARNING] Negative/zero estT_cons: {estT_cons}, cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB}, cons_estimated_trMiB: {cons_estimated_trMiB}")
@@ -508,17 +514,24 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
 
                                         # Calculate SPM based on producer type
                                         if prod_op == 'none':
-                                            SPM = 0.0  # Stage_in tasks with operation "none" always have SPM = 0
-                                        elif estT_prod == 0:
-                                            SPM = 0.0  # When producer time is zero (e.g., cp operations with zero transfer rate)
-                                        else:
-                                            SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
+                                            estT_prod = 0.0  # Stage_in tasks with operation "none" always have SPM = 0
+                                        # elif estT_prod == 0:
+                                        #     SPM = 0.0  # When producer time is zero (e.g., cp operations with zero transfer rate)
+                                        # else:
+                                        
+                                        SPM = estT_prod + estT_cons #if estT_cons > 0 else float('inf')
+
+                                        # Debug output for final SPM calculation
+                                        if debug and prod_task_name.startswith('stage_in-'):
+                                            print(f"  Final SPM: {SPM}")
+                                            print(f"  Edge key: {prod_storage}_{n_prod.replace('p', '')}_{cons_storage}_{n_cons}")
+                                            print("  ---")
 
                                         # Use both producer and consumer storage in the key
                                         edge_key = f'{prod_storage}_{n_prod.replace("p", "")}_{cons_storage}_{n_cons}'
                                         edge_attributes[f'estT_prod_{prod_storage}_{n_prod}'] = estT_prod
                                         edge_attributes[f'estT_cons_{cons_storage}_{n_cons}'] = estT_cons
-                                        edge_attributes[f'SPM_{edge_key}'] = SPM
+                                        # Don't calculate SPM here - it will be calculated after averaging estT values
                                         edge_count += 1
                     # Add debug print if no edge_attributes were set
                     if not edge_attributes and debug:
@@ -672,7 +685,15 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                         estT_prod = 0.0  # Virtual producers have zero time
                                     else:
                                         estT_prod = prod_aggregateFilesizeMB / prod_estimated_trMiB if prod_estimated_trMiB and prod_estimated_trMiB > 0 else 0.0
-
+                                    
+                                    # Debug output for stage_in tasks
+                                    if debug and prod_task_name.startswith('stage_in-'):
+                                        print(f"[DEBUG] Stage_in SPM calculation for {prod_task_name} -> {consumer_row['taskName']}:")
+                                        print(f"  Producer: {prod_storage}_{n_prod}, Consumer: {cons_storage}_{n_cons}")
+                                        print(f"  prod_aggregateFilesizeMB: {prod_aggregateFilesizeMB}")
+                                        print(f"  prod_estimated_trMiB: {prod_estimated_trMiB}")
+                                        print(f"  estT_prod: {estT_prod}")
+                                    
                                     for cons_key in cons_keys:
                                         try:
                                             n_cons = cons_key.split('_')[-1]  # e.g., '1p', '24p'
@@ -692,17 +713,13 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                         else:
                                             estT_cons = cons_aggregateFilesizeMB / cons_estimated_trMiB
 
+                                        # Debug output for stage_in tasks (consumer side)
+                                        if debug and prod_task_name.startswith('stage_in-'):
+                                            print(f"  cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB}")
+                                            print(f"  cons_estimated_trMiB: {cons_estimated_trMiB}")
+                                            print(f"  estT_cons: {estT_cons}")
+
                                         # Validate that estT values are positive
-                                        # Stage_in tasks with operation "none" always have zero estT_prod
-                                        if estT_prod < 0:
-                                            if debug:
-                                                print(f"[WARNING] Negative estT_prod: {estT_prod}, prod_aggregateFilesizeMB: {prod_aggregateFilesizeMB}, prod_estimated_trMiB: {prod_estimated_trMiB}")
-                                            continue
-                                        # Allow zero estT_prod for stage_in tasks with operation "none" or when transfer rate is legitimately zero
-                                        if estT_prod == 0 and prod_op != 'none' and (prod_estimated_trMiB and prod_estimated_trMiB > 0):
-                                            if debug:
-                                                print(f"[WARNING] Zero estT_prod for non-virtual producer: {prod_task_name} op: {prod_op}")
-                                            continue
                                         if estT_cons <= 0:
                                             if debug:
                                                 print(f"[WARNING] Negative/zero estT_cons: {estT_cons}, cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB}, cons_estimated_trMiB: {cons_estimated_trMiB}")
@@ -710,17 +727,24 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
 
                                         # Calculate SPM based on producer type
                                         if prod_op == 'none':
-                                            SPM = 0.0  # Stage_in tasks with operation "none" always have SPM = 0
-                                        elif estT_prod == 0:
-                                            SPM = 0.0  # When producer time is zero (e.g., cp operations with zero transfer rate)
-                                        else:
-                                            SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
+                                            estT_prod = 0.0  # Stage_in tasks with operation "none" always have SPM = 0
+                                        # elif estT_prod == 0:
+                                        #     SPM = 0.0  # When producer time is zero (e.g., cp operations with zero transfer rate)
+                                        # else:
+                                        
+                                        SPM = estT_prod + estT_cons #if estT_cons > 0 else float('inf')
+
+                                        # Debug output for final SPM calculation
+                                        if debug and prod_task_name.startswith('stage_in-'):
+                                            print(f"  Final SPM: {SPM}")
+                                            print(f"  Edge key: {prod_storage}_{n_prod.replace('p', '')}_{cons_storage}_{n_cons}")
+                                            print("  ---")
 
                                         # Use both producer and consumer storage in the key
                                         edge_key = f'{prod_storage}_{n_prod.replace("p", "")}_{cons_storage}_{n_cons}'
                                         edge_attributes[f'estT_prod_{prod_storage}_{n_prod}'] = estT_prod
                                         edge_attributes[f'estT_cons_{cons_storage}_{n_cons}'] = estT_cons
-                                        edge_attributes[f'SPM_{edge_key}'] = SPM
+                                        # Don't calculate SPM here - it will be calculated after averaging estT values
                                         edge_count += 1
                     # Add debug print if no edge_attributes were set
                     if not edge_attributes and debug:
@@ -890,7 +914,15 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                     estT_prod = 0.0  # Virtual producers have zero time
                                 else:
                                     estT_prod = prod_aggregateFilesizeMB / prod_estimated_trMiB if prod_estimated_trMiB and prod_estimated_trMiB > 0 else 0.0
-
+                                
+                                # Debug output for stage_in tasks
+                                if debug and prod_task_name.startswith('stage_in-'):
+                                    print(f"[DEBUG] Stage_in SPM calculation for {prod_task_name} -> {consumer_row['taskName']}:")
+                                    print(f"  Producer: {prod_storage}_{n_prod}, Consumer: {cons_storage}_{n_cons}")
+                                    print(f"  prod_aggregateFilesizeMB: {prod_aggregateFilesizeMB}")
+                                    print(f"  prod_estimated_trMiB: {prod_estimated_trMiB}")
+                                    print(f"  estT_prod: {estT_prod}")
+                                
                                 for cons_key in cons_keys:
                                     try:
                                         n_cons = cons_key.split('_')[-1]  # e.g., '1p', '24p'
@@ -910,17 +942,13 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                     else:
                                         estT_cons = cons_aggregateFilesizeMB / cons_estimated_trMiB
 
+                                    # Debug output for stage_in tasks (consumer side)
+                                    if debug and prod_task_name.startswith('stage_in-'):
+                                        print(f"  cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB}")
+                                        print(f"  cons_estimated_trMiB: {cons_estimated_trMiB}")
+                                        print(f"  estT_cons: {estT_cons}")
+
                                     # Validate that estT values are positive
-                                    # Stage_in tasks with operation "none" always have zero estT_prod
-                                    if estT_prod < 0:
-                                        if debug:
-                                            print(f"[WARNING] Negative estT_prod: {estT_prod}, prod_aggregateFilesizeMB: {prod_aggregateFilesizeMB}, prod_estimated_trMiB: {prod_estimated_trMiB}")
-                                        continue
-                                    # Allow zero estT_prod for stage_in tasks with operation "none" or when transfer rate is legitimately zero
-                                    if estT_prod == 0 and prod_op != 'none' and (prod_estimated_trMiB and prod_estimated_trMiB > 0):
-                                        if debug:
-                                            print(f"[WARNING] Zero estT_prod for non-virtual producer: {prod_task_name} op: {prod_op}")
-                                        continue
                                     if estT_cons <= 0:
                                         if debug:
                                             print(f"[WARNING] Negative/zero estT_cons: {estT_cons}, cons_aggregateFilesizeMB: {cons_aggregateFilesizeMB}, cons_estimated_trMiB: {cons_estimated_trMiB}")
@@ -934,11 +962,17 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                                     else:
                                         SPM = estT_prod / estT_cons if estT_cons > 0 else float('inf')
 
+                                    # Debug output for final SPM calculation
+                                    if debug and prod_task_name.startswith('stage_in-'):
+                                        print(f"  Final SPM: {SPM}")
+                                        print(f"  Edge key: {prod_storage}_{n_prod.replace('p', '')}_{cons_storage}_{n_cons}")
+                                        print("  ---")
+
                                     # Use both producer and consumer storage in the key
                                     edge_key = f'{prod_storage}_{n_prod.replace("p", "")}_{cons_storage}_{n_cons}'
                                     edge_attributes[f'estT_prod_{prod_storage}_{n_prod}'] = estT_prod
                                     edge_attributes[f'estT_cons_{cons_storage}_{n_cons}'] = estT_cons
-                                    edge_attributes[f'SPM_{edge_key}'] = SPM
+                                    # Don't calculate SPM here - it will be calculated after averaging estT values
                                     edge_count += 1
                     # Add debug print if no edge_attributes were set
                     if not edge_attributes and debug:
@@ -1101,16 +1135,22 @@ def normalize_estT_values(SPM_estT_values: Dict[str, Dict[str, Any]], debug=Fals
 
 def calculate_averages_and_rank(SPM_estT_values, debug=False):
     """
-    Averages list values for estT_prod, estT_cons, SPM, and dsize, and calculates rank for each storage_n.
+    Averages list values for estT_prod and estT_cons, calculates SPM as ave_estT_prod + ave_estT_cons,
+    and calculates rank for each storage_n.
+    
+    The SPM calculation now follows the correct approach:
+    1. Average all estT_prod values for the same producer task
+    2. Average all estT_cons values for the same consumer task  
+    3. Calculate SPM = ave_estT_prod + ave_estT_cons
     
     rank = ave_dsize * (estT_prod + estT_cons) * abs(SPM - 1)
     
     Parameters:
-    SPM_estT_values (dict): Dictionary containing 'estT_prod', 'estT_cons', 'SPM', and 'dsize' values.
+    SPM_estT_values (dict): Dictionary containing 'estT_prod', 'estT_cons', and 'dsize' values.
     debug (bool): Boolean to control debug output (default: False)
 
     Returns:
-    dict: Updated dictionary with averaged values and calculated ranks.
+    dict: Updated dictionary with averaged values, calculated SPM, and calculated ranks.
     """
     if debug:
         print(f"Calculating averages and ranks for {len(SPM_estT_values)} producer-consumer pairs...")
@@ -1120,7 +1160,27 @@ def calculate_averages_and_rank(SPM_estT_values, debug=False):
         if 'rank' not in data:
             data['rank'] = {}
         
-        for storage_n in data['SPM'].keys():
+        # Get all unique storage combinations from estT_prod keys
+        storage_combinations = set()
+        for prod_key in data['estT_prod'].keys():
+            # Parse the producer key to get storage and parallelism info
+            parts = prod_key.split('_')
+            if len(parts) >= 2:
+                prod_storage = parts[0]
+                n_prod = parts[1].replace('p', '')
+                
+                # Find corresponding consumer keys for this producer storage
+                for cons_key in data['estT_cons'].keys():
+                    cons_parts = cons_key.split('_')
+                    if len(cons_parts) >= 2:
+                        cons_storage = cons_parts[0]
+                        n_cons = cons_parts[1].replace('p', '')
+                        
+                        # Create storage combination key
+                        storage_n = f"{prod_storage}_{n_prod}_{cons_storage}_{n_cons}p"
+                        storage_combinations.add(storage_n)
+        
+        for storage_n in storage_combinations:
             # Parse the new format: {prod_storage}_{n_prod}_{cons_storage}_{n_cons}
             # Example: beegfs_1_ssd_24p -> prod_key: beegfs_1p, cons_key: ssd_24p
             parts = storage_n.split('_')
@@ -1147,9 +1207,12 @@ def calculate_averages_and_rank(SPM_estT_values, debug=False):
             # Average estT_cons
             estT_cons_values = data['estT_cons'].get(cons_key, [])
             avg_estT_cons = sum(estT_cons_values) / len(estT_cons_values) if estT_cons_values else 0.0
-            # Average SPM
-            spm_values = data['SPM'].get(storage_n, [])
-            avg_spm = sum(spm_values) / len(spm_values) if spm_values else 0.0
+            
+            # Calculate SPM after averaging estT values
+            if avg_estT_cons > 0:
+                avg_spm = avg_estT_prod + avg_estT_cons
+            else:
+                avg_spm = avg_estT_prod
             # Average dsize (corrected key access)
             dsize_prod_values = data['dsize_prod'].get("", [])  # Access dsize using the empty key as seen in the normalized output
             ave_prod_dsize = sum(dsize_prod_values) #/ len(dsize_prod_values) if dsize_prod_values else 1.0  # Default to 1.0 if no dsize

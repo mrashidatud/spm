@@ -540,43 +540,174 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
     return wf_pfs_df
 
 
-def calculate_aggregate_filesize_per_node(wf_df: pd.DataFrame) -> pd.DataFrame:
+def calculate_aggregate_filesize_per_node(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
     """
-    Calculate aggregate file size per node for each unique (taskName, operation).
-    For each (taskName, operation), sum 'aggregateFilesizeMBtask' for all rows, then divide by the length of the 'numNodesList' (if available),
-    and assign this value to 'aggregateFilesizeMB' for all those rows.
-    Handles operation types: 'cp', 'scp', 'read', 'write', 'none'.
+    Calculate aggregate file size per node for each unique (taskName, operation, numNodes).
+    
+    For each (taskName, operation, numNodes) combination:
+    - For 'read' and 'write' operations: Group by unique taskPID and sum aggregateFilesizeMBtask values
+    - For 'cp', 'scp', and 'none' operations: Use file-based calculation with prepared file size dictionary
+    
+    The result is assigned to 'aggregateFilesizeMB' for all rows with that (taskName, operation, numNodes) combination.
     """
+    if debug:
+        print(f"\n=== calculate_aggregate_filesize_per_node DEBUG ===")
+        print(f"Input DataFrame shape: {wf_df.shape}")
+        print(f"Columns: {list(wf_df.columns)}")
+        print(f"Sample data:")
+        print(wf_df[['taskName', 'operation', 'fileName', 'aggregateFilesizeMB']].head())
+    
     # Step 1: Rename the original column to preserve it
     result_df = wf_df.rename(columns={"aggregateFilesizeMB": "aggregateFilesizeMBtask"}).copy()
     result_df["aggregateFilesizeMB"] = None
-
-    # Define all operation types (both string and numeric)
-    operation_types = ["cp", "scp", "read", "write", "none", 0, 1]
-
-    for task_name in result_df["taskName"].unique():
-        task_df = result_df[result_df["taskName"] == task_name]
-        for op in operation_types:
-            op_df = task_df[task_df["operation"] == op]
-            if op_df.empty:
-                continue
-            agg_sum = op_df["aggregateFilesizeMBtask"].sum()
-            # I/O entries are expanded based on numNodesList
-            num_nodes_list = op_df["numNodesList"].iloc[0] if "numNodesList" in op_df.columns else None
-            if isinstance(num_nodes_list, (list, tuple)):
-                divisor = len(num_nodes_list)
+    
+    if debug:
+        print(f"After renaming - aggregateFilesizeMBtask sample values:")
+        sample_values = result_df['aggregateFilesizeMBtask'].head(10).tolist()
+        print(f"  {sample_values}")
+    
+    # Step 2: Prepare file size dictionary for cp/scp/none operations
+    # Get file sizes from regular tasks (not stage_in or stage_out) with read and write operations
+    regular_tasks_df = result_df[
+        (~result_df['taskName'].str.contains('stage_in|stage_out', na=False)) & 
+        (result_df['operation'].isin(['read', 'write']))
+    ]
+    file_size_dict = {}
+    
+    if debug:
+        print(f"\nPreparing file size dictionary from regular tasks with read and write operations...")
+        print(f"Regular tasks with read/write operations: {len(regular_tasks_df)} rows")
+    
+    for idx, row in regular_tasks_df.iterrows():
+        file_name = row['fileName'].strip()
+        if file_name and file_name not in file_size_dict:
+            file_size_dict[file_name] = row['aggregateFilesizeMBtask']
+        elif file_name in file_size_dict:
+            # If multiple sizes exist for the same file, take the smallest one
+            current_size = file_size_dict[file_name]
+            new_size = row['aggregateFilesizeMBtask']
+            if new_size < current_size:
+                file_size_dict[file_name] = new_size
+    
+    # Also add files from cp and scp operations in regular tasks
+    cp_scp_tasks_df = result_df[
+        (~result_df['taskName'].str.contains('stage_in|stage_out', na=False)) & 
+        (result_df['operation'].isin(['cp', 'scp']))
+    ]
+    
+    if debug:
+        print(f"Adding files from cp/scp operations in regular tasks: {len(cp_scp_tasks_df)} rows")
+    
+    for idx, row in cp_scp_tasks_df.iterrows():
+        file_names_str = row['fileName'].strip()
+        if file_names_str:
+            # Parse comma-delimited file names
+            file_names = [f.strip() for f in file_names_str.split(',') if f.strip()]
+            for file_name in file_names:
+                if file_name not in file_size_dict:
+                    file_size_dict[file_name] = row['aggregateFilesizeMBtask']
+                elif file_name in file_size_dict:
+                    # If multiple sizes exist for the same file, take the smallest one
+                    current_size = file_size_dict[file_name]
+                    new_size = row['aggregateFilesizeMBtask']
+                    if new_size < current_size:
+                        file_size_dict[file_name] = new_size
+    
+    if debug:
+        print(f"File size dictionary created with {len(file_size_dict)} unique files")
+        print(f"Sample file sizes: {dict(list(file_size_dict.items())[:5])}")
+    
+    # Step 3: Process each unique (taskName, operation) combination
+    unique_combinations = result_df[['taskName', 'operation']].drop_duplicates()
+    
+    if debug:
+        print(f"\nProcessing {len(unique_combinations)} unique (taskName, operation) combinations...")
+    
+    for _, combo in unique_combinations.iterrows():
+        task_name = combo['taskName']
+        operation = combo['operation']
+        
+        # Get all rows for this combination
+        mask = (result_df['taskName'] == task_name) & (result_df['operation'] == operation)
+        subset = result_df[mask]
+        
+        if debug:
+            print(f"\nProcessing: {task_name} - {operation} ({len(subset)} rows)")
+        
+        if operation in ['read', 'write']:
+            # For read and write operations: Group by unique taskPID and sum aggregateFilesizeMBtask values
+            if 'taskPID' in subset.columns:
+                task_pid_groups = subset.groupby('taskPID')
+                total_sum = 0
+                for task_pid, group in task_pid_groups:
+                    group_sum = group['aggregateFilesizeMBtask'].sum()
+                    total_sum += group_sum
+                    if debug:
+                        print(f"  taskPID {task_pid}: sum = {group_sum}")
+                aggregate_value = total_sum
             else:
-                # Try to parse if it's a string representation of a list
-                try:
-                    import ast
-                    parsed = ast.literal_eval(num_nodes_list) if isinstance(num_nodes_list, str) else None
-                    divisor = len(parsed) if isinstance(parsed, (list, tuple)) else 1
-                except Exception:
-                    divisor = 1
-            if divisor == 0:
-                divisor = 1
-            agg_per_node = agg_sum / divisor
-            idx = (result_df["taskName"] == task_name) & (result_df["operation"] == op)
-            result_df.loc[idx, "aggregateFilesizeMB"] = agg_per_node
-
+                # Fallback if taskPID column doesn't exist
+                aggregate_value = subset['aggregateFilesizeMBtask'].sum()
+                if debug:
+                    print(f"  No taskPID column, using sum: {aggregate_value}")
+        
+        elif operation in ['cp', 'scp', 'none']:
+            # For cp, scp, and none operations: Use file-based calculation
+            if debug:
+                print(f"  Using file-based calculation for {operation} operation")
+            
+            # Get unique file names from this subset
+            unique_files = set()
+            for _, row in subset.iterrows():
+                file_names_str = row['fileName'].strip()
+                if file_names_str:
+                    # Parse comma-delimited file names for cp/scp operations
+                    if operation in ['cp', 'scp']:
+                        file_names = [f.strip() for f in file_names_str.split(',') if f.strip()]
+                        unique_files.update(file_names)
+                    else:
+                        # For 'none' operations, treat as single file
+                        unique_files.add(file_names_str)
+            
+            if debug:
+                print(f"  Unique files in this subset: {unique_files}")
+            
+            # Calculate total size using the file size dictionary
+            total_size = 0
+            found_files = 0
+            for file_name in unique_files:
+                if file_name in file_size_dict:
+                    total_size += file_size_dict[file_name]
+                    found_files += 1
+                    if debug:
+                        print(f"    File '{file_name}': {file_size_dict[file_name]} MB")
+                else:
+                    if debug:
+                        print(f"    File '{file_name}': NOT FOUND in dictionary")
+            
+            if debug:
+                print(f"  Found {found_files}/{len(unique_files)} files in dictionary")
+                print(f"  Total size: {total_size}")
+            
+            aggregate_value = total_size
+        
+        else:
+            # For other operations, use sum
+            aggregate_value = subset['aggregateFilesizeMBtask'].sum()
+            if debug:
+                print(f"  Other operation '{operation}', using sum: {aggregate_value}")
+        
+        # Assign the calculated value to all rows in this subset
+        result_df.loc[mask, 'aggregateFilesizeMB'] = aggregate_value
+        
+        if debug:
+            print(f"  Final aggregateFilesizeMB for {task_name} - {operation}: {aggregate_value}")
+    
+    if debug:
+        print(f"\n=== Summary ===")
+        print(f"Updated {len(result_df)} rows with aggregateFilesizeMB values")
+        print(f"Sample results:")
+        sample_results = result_df[['taskName', 'operation', 'aggregateFilesizeMB']].head(10)
+        print(sample_results.to_string())
+    
     return result_df 

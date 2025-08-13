@@ -48,7 +48,8 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     # Step 1: Load workflow data
     print("\n1. Loading workflow data...")
     wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name, csv_filename=csv_filename)
-    
+
+
     # Get configuration for the workflow
     config = TEST_CONFIGS[workflow_name]
     num_nodes_list = config["NUM_NODES_LIST"]
@@ -65,15 +66,18 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     print("\n2. Calculating I/O time breakdown...")
     io_breakdown = calculate_io_time_breakdown(wf_df, task_name_to_parallelism, num_nodes_list)
     
-    # Step 2.1: Calculate aggregate file size per node
-    print("\n2.1. Calculating aggregate file size per node...")
-    wf_df = calculate_aggregate_filesize_per_node(wf_df)
-    print(f"Updated columns: {[col for col in wf_df.columns if 'aggregateFilesizeMB' in col]}")
-    
     # Step 3: Insert data staging rows
     print("\n3. Inserting data staging rows...")
     wf_df = insert_data_staging_rows(wf_df)
     print(f"   Added staging rows, total records: {len(wf_df)}")
+    
+    # Step 3.1: Calculate aggregate file size per node (AFTER staging rows are inserted)
+    print("\n3.1. Calculating aggregate file size per node...")
+    wf_df = calculate_aggregate_filesize_per_node(wf_df, debug=False)
+    print(f"Updated columns: {[col for col in wf_df.columns if 'aggregateFilesizeMB' in col]}")
+    # Save the workflow data to a CSV file
+    wf_df.to_csv(f'./analysis_data/{workflow_name}_workflow_data.csv', index=False)
+    print(f"   Saved workflow data to: ./analysis_data/{workflow_name}_workflow_data.csv")
     
     # Step 4: Load IOR benchmark data
     print("\n4. Loading IOR benchmark data...")
@@ -89,7 +93,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     if not df_ior.empty:
         print("\n5. Estimating transfer rates...")
         # Get allowed_parallelism from config, with fallback to default
-        cp_scp_parallelism = set(wf_df.loc[wf_df['operation'].isin(['cp', 'scp']), 'parallelism'].unique())
+        cp_scp_parallelism = set(wf_df.loc[wf_df['operation'].isin(['cp', 'scp', 'none']), 'parallelism'].unique())
         ALLOWED_PARALLELISM = TEST_CONFIGS[workflow_name]["ALLOWED_PARALLELISM"]
         allowed_parallelism = sorted(set(ALLOWED_PARALLELISM).union(cp_scp_parallelism))
         print(f"   Allowed parallelism: {allowed_parallelism}")
@@ -127,7 +131,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 9: Display top results
     print("\n9. Displaying top results...")
-    display_top_sorted_averaged_rank(spm_results, top_n=20)
+    display_top_sorted_averaged_rank(spm_results, top_n=100)
     
     # Step 10: Generate visualizations (currently not working, skipping)
     print("\n10. Generating visualizations...")
