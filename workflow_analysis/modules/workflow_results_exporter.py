@@ -20,16 +20,10 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
     - wf_df: Workflow DataFrame with task information
     
     Returns:
-    - DataFrame: Producer-consumer results with specified columns
+    - DataFrame: Producer-consumer results with columns:
+      producer, consumer, producerStorageType, producerTasksPerNode, 
+      consumerStorageType, consumerTasksPerNode, SPM
     """
-    
-    # Create a mapping from taskName to stageOrder for quick lookup
-    task_stage_mapping = {}
-    for _, row in wf_df.iterrows():
-        task_name = row['taskName']
-        stage_order = row['stageOrder']
-        if task_name not in task_stage_mapping:
-            task_stage_mapping[task_name] = stage_order
     
     results_data = []
     
@@ -45,90 +39,57 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
             else:
                 continue
         
-        # Get stage orders
-        producer_stage = task_stage_mapping.get(producer, -1)  # -1 for input stage
-        consumer_stage = task_stage_mapping.get(consumer, -1)
-        
-        # Extract storage and parallelism information
-        if 'best_storage_type' in data and 'best_parallelism' in data:
-            # Single best configuration
-            storage_type = data['best_storage_type']
-            parallelism_config = data['best_parallelism']
-            spm_value = data.get('best_rank', np.nan)
+        # Extract SPM data
+        if 'SPM' in data:
+            spm_data = data['SPM']
             
-            # Parse parallelism configuration (format: "storage_prodPar_consPar")
-            if '_' in parallelism_config:
-                parts = parallelism_config.split('_')
-                if len(parts) >= 3:
-                    prod_parallelism = parts[1]
-                    cons_parallelism = parts[2]
-                else:
-                    prod_parallelism = np.nan
-                    cons_parallelism = np.nan
-            else:
-                prod_parallelism = np.nan
-                cons_parallelism = np.nan
-            
-            results_data.append({
-                'producer': producer,
-                'producerStage': producer_stage,
-                'consumer': consumer,
-                'consumerStage': consumer_stage,
-                'prodParallelism': prod_parallelism,
-                'consParallelism': cons_parallelism,
-                'p-c-Storage': storage_type,
-                'p-c-SPM': spm_value
-            })
-        
-        elif 'rank' in data:
-            # Multiple storage configurations - get the best one
-            rank_data = data['rank']
-            if rank_data:
-                # Find the storage configuration with the best (lowest) rank
-                best_storage = None
-                best_rank = float('inf')
+            for storage_key, spm_values in spm_data.items():
+                # Parse storage key format: {prod_storage}_{num1}_{consumer_storage}_{num2}p
+                # Example: "beegfs_2_ssd_30p" -> prod_storage="beegfs", num1="2", cons_storage="ssd", num2="30"
                 
-                for storage_config, rank_values in rank_data.items():
-                    if rank_values and len(rank_values) > 0:
-                        avg_rank = np.mean(rank_values)
-                        if avg_rank < best_rank:
-                            best_rank = avg_rank
-                            best_storage = storage_config
+                # Split by underscore
+                parts = storage_key.split('_')
                 
-                if best_storage:
-                    # Parse storage configuration (format: "storage_prodPar_consPar")
-                    if '_' in best_storage:
-                        parts = best_storage.split('_')
-                        if len(parts) >= 3:
-                            storage_type = parts[0]
-                            prod_parallelism = parts[1]
-                            cons_parallelism = parts[2]
-                        else:
-                            storage_type = best_storage
-                            prod_parallelism = np.nan
-                            cons_parallelism = np.nan
-                    else:
-                        storage_type = best_storage
-                        prod_parallelism = np.nan
-                        cons_parallelism = np.nan
+                if len(parts) >= 4:
+                    # Handle compound storage types (e.g., "beegfs-ssd")
+                    # Find where the consumer storage starts
+                    # Look for the pattern: {prod_storage}_{num1}_{cons_storage}_{num2}p
                     
-                    results_data.append({
-                        'producer': producer,
-                        'producerStage': producer_stage,
-                        'consumer': consumer,
-                        'consumerStage': consumer_stage,
-                        'prodParallelism': prod_parallelism,
-                        'consParallelism': cons_parallelism,
-                        'p-c-Storage': storage_type,
-                        'p-c-SPM': best_rank
-                    })
+                    # Start from the end and work backwards
+                    # The last part should end with 'p' and contain the consumer parallelism
+                    last_part = parts[-1]
+                    if last_part.endswith('p'):
+                        consumer_tasks_per_node = last_part[:-1]  # Remove 'p'
+                        
+                        # The second-to-last part is the consumer storage type
+                        consumer_storage_type = parts[-2]
+                        
+                        # The third-to-last part is the producer tasks per node
+                        producer_tasks_per_node = parts[-3]
+                        
+                        # Everything before that is the producer storage type
+                        producer_storage_type = '_'.join(parts[:-3])
+                        
+                        # Get the SPM value (should be a list with one value after averaging)
+                        if spm_values and len(spm_values) > 0:
+                            spm_value = spm_values[0]  # Take the first (and only) value
+                            
+                            results_data.append({
+                                'producer': producer,
+                                'consumer': consumer,
+                                'producerStorageType': producer_storage_type,
+                                'producerTasksPerNode': producer_tasks_per_node,
+                                'consumerStorageType': consumer_storage_type,
+                                'consumerTasksPerNode': consumer_tasks_per_node,
+                                'SPM': spm_value
+                            })
     
     # Create DataFrame
     results_df = pd.DataFrame(results_data)
     
-    # Sort by producer stage, then consumer stage, then producer name
+    # Sort by producer, then consumer, then SPM value
     if not results_df.empty:
-        results_df = results_df.sort_values(['producerStage', 'consumerStage', 'producer', 'consumer'])
+        results_df = results_df.sort_values(['producer', 'consumer', 'SPM'])
     
     return results_df
 
@@ -176,13 +137,14 @@ def save_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
     results_df.to_csv(output_path, index=False)
     
     print(f"✓ Producer-consumer results saved to: {output_path}")
-    print(f"  - Total producer-consumer pairs: {len(results_df)}")
+    print(f"  - Total producer-consumer configurations: {len(results_df)}")
     print(f"  - Columns: {list(results_df.columns)}")
     
     if not results_df.empty:
-        print(f"  - Producer stages: {sorted(results_df['producerStage'].unique())}")
-        print(f"  - Consumer stages: {sorted(results_df['consumerStage'].unique())}")
-        print(f"  - Storage types: {sorted(results_df['p-c-Storage'].unique())}")
+        print(f"  - Unique producer-consumer pairs: {len(results_df[['producer', 'consumer']].drop_duplicates())}")
+        print(f"  - Producer storage types: {sorted(results_df['producerStorageType'].unique())}")
+        print(f"  - Consumer storage types: {sorted(results_df['consumerStorageType'].unique())}")
+        print(f"  - SPM range: {results_df['SPM'].min():.4f} to {results_df['SPM'].max():.4f}")
     
     return output_path
 
@@ -302,30 +264,54 @@ def print_storage_analysis(results_df: pd.DataFrame) -> None:
         print("No producer-consumer results to analyze.")
         return
     
-    analysis = analyze_storage_distribution(results_df)
+    print("\n=== Producer-Consumer Storage Analysis ===")
     
-    print("\n=== Storage Distribution Analysis ===")
+    # Basic statistics
+    print(f"\nSummary:")
+    print(f"  Total configurations: {len(results_df)}")
+    print(f"  Unique producer-consumer pairs: {len(results_df[['producer', 'consumer']].drop_duplicates())}")
+    print(f"  SPM range: {results_df['SPM'].min():.4f} to {results_df['SPM'].max():.4f}")
+    print(f"  Average SPM: {results_df['SPM'].mean():.4f}")
     
-    if 'storage_distribution' in analysis:
-        print("\nStorage Type Usage:")
-        for storage, count in analysis['storage_distribution'].items():
-            percentage = (count / len(results_df)) * 100
-            print(f"  {storage}: {count} pairs ({percentage:.1f}%)")
+    # Producer storage type distribution
+    print(f"\nProducer Storage Type Distribution:")
+    prod_storage_counts = results_df['producerStorageType'].value_counts()
+    for storage, count in prod_storage_counts.items():
+        percentage = (count / len(results_df)) * 100
+        print(f"  {storage}: {count} configurations ({percentage:.1f}%)")
     
-    if 'spm_by_storage' in analysis:
-        print("\nSPM Performance by Storage Type:")
-        for storage, stats in analysis['spm_by_storage'].items():
-            print(f"  {storage}:")
-            print(f"    Mean SPM: {stats['mean']:.4f}")
-            print(f"    Min SPM: {stats['min']:.4f}")
-            print(f"    Max SPM: {stats['max']:.4f}")
-            print(f"    Std Dev: {stats['std']:.4f}")
+    # Consumer storage type distribution
+    print(f"\nConsumer Storage Type Distribution:")
+    cons_storage_counts = results_df['consumerStorageType'].value_counts()
+    for storage, count in cons_storage_counts.items():
+        percentage = (count / len(results_df)) * 100
+        print(f"  {storage}: {count} configurations ({percentage:.1f}%)")
     
-    if 'stage_analysis' in analysis:
-        print("\nStage-wise Analysis:")
-        for stage_key, stage_data in analysis['stage_analysis'].items():
-            stage_num = stage_key.replace('stage_', '')
-            print(f"  Stage {stage_num}:")
-            print(f"    Pairs: {stage_data['count']}")
-            print(f"    Avg SPM: {stage_data['avg_spm']:.4f}")
-            print(f"    Storage types: {', '.join(stage_data['storage_types'])}") 
+    # SPM performance by producer storage type
+    print(f"\nSPM Performance by Producer Storage Type:")
+    prod_spm_stats = results_df.groupby('producerStorageType')['SPM'].agg(['mean', 'min', 'max', 'std'])
+    for storage, stats in prod_spm_stats.iterrows():
+        print(f"  {storage}:")
+        print(f"    Mean SPM: {stats['mean']:.4f}")
+        print(f"    Min SPM: {stats['min']:.4f}")
+        print(f"    Max SPM: {stats['max']:.4f}")
+        print(f"    Std Dev: {stats['std']:.4f}")
+    
+    # SPM performance by consumer storage type
+    print(f"\nSPM Performance by Consumer Storage Type:")
+    cons_spm_stats = results_df.groupby('consumerStorageType')['SPM'].agg(['mean', 'min', 'max', 'std'])
+    for storage, stats in cons_spm_stats.iterrows():
+        print(f"  {storage}:")
+        print(f"    Mean SPM: {stats['mean']:.4f}")
+        print(f"    Min SPM: {stats['min']:.4f}")
+        print(f"    Max SPM: {stats['max']:.4f}")
+        print(f"    Std Dev: {stats['std']:.4f}")
+    
+    # Best configurations for each producer-consumer pair
+    print(f"\nBest Configuration for Each Producer-Consumer Pair:")
+    best_configs = results_df.loc[results_df.groupby(['producer', 'consumer'])['SPM'].idxmin()]
+    for _, row in best_configs.iterrows():
+        print(f"  {row['producer']} -> {row['consumer']}:")
+        print(f"    Producer: {row['producerStorageType']} ({row['producerTasksPerNode']} tasks/node)")
+        print(f"    Consumer: {row['consumerStorageType']} ({row['consumerTasksPerNode']} tasks/node)")
+        print(f"    SPM: {row['SPM']:.4f}") 

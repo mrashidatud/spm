@@ -82,7 +82,13 @@ The system supports storage types based on I/O performance profiles collected fr
 - **`tmpfs`** - Temporary file system (memory-based, fastest access)
 - **`nfs`** - Network File System (network-attached storage)
 
-Performance characteristics are derived from IOR benchmark data in `../perf_profiles/updated_master_ior_df.csv`, which contains transfer rates for different file sizes, parallelism levels, and I/O patterns (read/write operations).
+Performance characteristics are derived from IOR benchmark data in `../perf_profiles/updated_master_ior_df.csv`, which contains transfer rates for different file sizes, parallelism levels, and I/O patterns (read/write operations, cp/scp operations).
+
+### Storage Type Transitions
+The system now supports storage type transitions using cp/scp operations:
+- **`beegfs-ssd`**, **`ssd-beegfs`** - Transitions between BeeGFS and SSD storage
+- **`beegfs-tmpfs`**, **`tmpfs-beegfs`** - Transitions between BeeGFS and tmpfs storage
+- **`ssd-ssd`**, **`tmpfs-tmpfs`** - Same-storage operations using cp/scp
 
 ## 🔧 Key Features
 
@@ -108,7 +114,9 @@ Performance characteristics are derived from IOR benchmark data in `../perf_prof
 **Workflow Data**: Uses integer operations (0=write, 1=read)
 **IOR Benchmark Data**: Uses string operations ('write', 'read', 'cp', 'scp')
 
-The interpolation function automatically maps workflow integers to IOR strings internally.
+The interpolation function automatically maps workflow integers to IOR strings internally. The system now supports cp/scp operations for modeling storage type transitions between workflow stages.
+
+**Note**: All operations in the benchmark data CSV files are now consistently represented as strings for better clarity and consistency.
 
 ## 📊 Output Files
 
@@ -125,6 +133,7 @@ The interpolation function automatically maps workflow integers to IOR strings i
 - ✅ **Core Analysis**: Complete and tested
 - ✅ **SPM Calculation**: Complete and tested  
 - ✅ **Transfer Rate Estimation**: Complete and tested
+- ✅ **Storage Type Transitions**: Complete and tested (CP/SCP operations)
 - 🚧 **Visualization**: Under construction
 - ✅ **Template Generation**: Complete and tested
 - ✅ **Command-Line Interface**: Complete and tested

@@ -284,67 +284,59 @@ def plot_storage_comparison(df: pd.DataFrame,
                           metric: str = 'trMiB',
                           title: str = None,
                           save_path: Optional[str] = None,
-                          include_averaged: bool = True):
+                          include_averaged: bool = True,
+                          aggregate_file_size: Optional[float] = None):
     """
-    Plot comparison of different storage types for fixed transfer size and number of nodes.
+    Plot storage comparison for a given transfer size and number of nodes.
+    Optionally filter by aggregateFileSize.
+    Ensures at least 8 distinct colors for data points and different shapes for read/write.
+    Now uses a unique color for each (storage type, operation) pair.
+    """
+    # Filter by aggregateFileSize if specified
+    if aggregate_file_size is not None:
+        df = df[df['aggregateFilesizeMB'] == aggregate_file_size]
     
-    Args:
-        df: Input DataFrame
-        transfer_size: Transfer size to filter by (in bytes)
-        num_nodes: Number of nodes to filter by
-        metric: Metric to plot (default: 'trMiB')
-        title: Plot title
-        save_path: Path to save the plot
-        include_averaged: Whether to include averaged statistics
-    """
     # Filter data
     filtered_df = filter_data_by_conditions(
-        df, transfer_size=transfer_size, num_nodes=num_nodes
-    )
+        df, transfer_size=transfer_size, num_nodes=num_nodes)
     
-    if filtered_df.empty:
-        print(f"No data found for transfer_size={transfer_size}, num_nodes={num_nodes}")
-        return
+    # Get unique (storage type, operation) pairs
+    storage_types = filtered_df['storageType'].unique()
+    operations = ['write', 'read']
+    pairs = [(stype, op) for stype in storage_types for op in operations]
+    n_colors = max(8, len(pairs))
+    import matplotlib.pyplot as plt
+    cmap = plt.get_cmap('tab10') if n_colors <= 10 else plt.get_cmap('tab20')
+    colors = [cmap(i % cmap.N) for i in range(n_colors)]
+    color_dict = {pair: colors[i % len(colors)] for i, pair in enumerate(pairs)}
+    marker_dict = {'write': 'o', 'read': 's'}
     
-    # Filter out averaged data if not requested
-    if not include_averaged:
-        filtered_df = filtered_df[~filtered_df['storageType'].str.startswith('ave_')]
+    fig, ax = plt.subplots(figsize=(8, 6))
+    for i, stype in enumerate(storage_types):
+        stype_df = filtered_df[filtered_df['storageType'] == stype]
+        for op in operations:
+            op_df = stype_df[stype_df['operation'] == op]
+            if not op_df.empty:
+                ax.scatter(op_df['tasksPerNode'], op_df[metric],
+                           label=f'{stype} {op}',
+                           color=color_dict[(stype, op)],
+                           marker=marker_dict.get(op, 'o'),
+                           s=40)
     
-    if filtered_df.empty:
-        print(f"No data found after filtering averaged data")
-        return
+    if include_averaged and 'averaged' in filtered_df.columns:
+        for i, stype in enumerate(storage_types):
+            stype_df = filtered_df[filtered_df['storageType'] == stype]
+            if 'averaged' in stype_df.columns:
+                ax.plot(stype_df['tasksPerNode'], stype_df['averaged'],
+                        color=color_dict.get((stype, 'write'), 'black'), linestyle='--', linewidth=2)
     
-    # Create plot
-    plt.figure(figsize=(12, 8))
-    
-    # Group by storage type and operation
-    for storage_type in filtered_df['storageType'].unique():
-        storage_data = filtered_df[filtered_df['storageType'] == storage_type]
-        
-        for operation in ['write', 'read']:
-            op_data = storage_data[storage_data['operation'] == operation]
-            if not op_data.empty:
-                # Use different markers for averaged data
-                marker = '^' if storage_type.startswith('ave_') else ('o' if operation == 'write' else 's')
-                label = f'{storage_type} {operation}'
-                plt.scatter(op_data['numTasks'], op_data[metric], 
-                           label=label, 
-                           marker=marker,
-                           s=100)
-    
-    plt.xlabel('Number of Tasks')
-    plt.ylabel(f'{metric} (MiB/s)')
-    plt.title(title or f'Storage Comparison - Transfer Size: {transfer_size//(1024*1024)}MB, Nodes: {num_nodes}')
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    
+    ax.set_xlabel('tasksPerNode')
+    ax.set_ylabel(metric)
+    ax.set_title(title or 'Storage Performance Comparison')
+    ax.legend()
+    ax.grid(True)
     if save_path:
-        # Ensure the directory exists
-        save_dir = os.path.dirname(save_path)
-        if save_dir and not os.path.exists(save_dir):
-            os.makedirs(save_dir)
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-    
+        plt.savefig(save_path)
     plt.show()
 
 def plot_transfer_size_analysis(df: pd.DataFrame,
@@ -455,6 +447,9 @@ if __name__ == "__main__":
     
     # Calculate averaged statistics
     df = calculate_averaged_statistics(df)
+
+    # # TODO: update parallelism to the total number of tasks / num nodes
+    # df['parallelism'] = df['numTasks'] / df['numNodes']
     
     # Save to CSV
     save_master_ior_df(df)

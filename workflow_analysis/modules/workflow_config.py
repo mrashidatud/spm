@@ -11,7 +11,7 @@ NORMALIZE = False
 DEBUG = True
 
 # Storage types
-STORAGE_LIST = ['ssd', 'beegfs', 'tmpfs'] # 'nfs', 'pfs'
+STORAGE_LIST = ['ssd', 'beegfs'] # 'nfs', 'pfs' , 'tmpfs'
 
 # Data size mappings in KB
 DATA_SIZE_KB = {
@@ -57,12 +57,12 @@ TEST_CONFIGS = {
         "exp_data_path": "./1kgenome", 
         "test_folders": ['par_6000_10n_nfs_ps300'] 
     },
-    "1kg_2": { # running as 10 nodes strictly
-        "SCRIPT_ORDER": "1kg_script_order",
-        "NUM_NODES_LIST": [10],
-        "ALLOWED_PARALLELISM": [1, 30],
+    "1kg_2": {
+        "SCRIPT_ORDER": "1kg_script_order_short",
+        "NUM_NODES_LIST": [2, 5, 10],
+        "ALLOWED_PARALLELISM": [1, 2, 5, 30, 60, 150], # [2, 4, 5, 10, 30, 60, 150],
         "exp_data_path": "./1kgenome", 
-        "test_folders": ['par_6000_10n_pfs_ps300'] 
+        "test_folders": ['par_6000_10n_nfs_ps300'] 
     },
     "pyflex_240f": {
         "SCRIPT_ORDER": "pyflextrkr_script_order",
@@ -73,8 +73,8 @@ TEST_CONFIGS = {
     },
     "pyflex_s9_48f": {
         "SCRIPT_ORDER": "pyflextrkr_s9_script_order",
-        "NUM_NODES_LIST": [4],
-        "ALLOWED_PARALLELISM": [1, 12, 24],
+        "NUM_NODES_LIST": [2, 4, 8],
+        "ALLOWED_PARALLELISM": [1, 12, 24, 48],
         "exp_data_path": "./pyflextrkr",
         "test_folders": ['summer_sam_4n_pfs_s9']
     },

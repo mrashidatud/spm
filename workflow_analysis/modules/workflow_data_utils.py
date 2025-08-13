@@ -494,6 +494,9 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
         wf_df.loc[mask, 'numNodes'] = 1  # Default to 1, can be updated based on actual data
         wf_df.loc[mask, 'tasksPerNode'] = task_name_to_num_tasks.get(task_name, 1)
     
+    # Standardize all operations to strings
+    wf_df['operation'] = wf_df['operation'].apply(standardize_operation)
+    
     # Expand DataFrame for multi-node configurations if enabled
     if MULTI_NODES:
         wf_df = expand_df(wf_df, num_nodes_list)
@@ -533,11 +536,14 @@ def expand_df(wf_df: pd.DataFrame, num_nodes_list: List[int]) -> pd.DataFrame:
         for num_nodes in num_nodes_list:
             # Create a copy of the current row
             new_row = row.copy()
-            
-            # Update the numNodes and tasksPerNode for the new row
-            tasksPerNode = math.ceil(row['parallelism'] / num_nodes)
-            new_row['tasksPerNode'] = tasksPerNode
-            new_row['numNodes'] = num_nodes
+            try:
+                # Update the numNodes and tasksPerNode for the new row
+                tasksPerNode = math.ceil(row['parallelism'] / num_nodes)
+                new_row['tasksPerNode'] = tasksPerNode
+                new_row['numNodes'] = num_nodes
+            except Exception as e:
+                print(f"Error updating row {index}: {e}: {row}")
+                continue
             
             # Append the updated row to the list
             updated_rows.append(new_row)
@@ -602,10 +608,22 @@ def standardize_operation(operation):
     - operation: Operation code (int or str)
     
     Returns:
-    - str: Standardized operation string
+    - str: Standardized operation string ('read', 'write', 'cp', 'scp', 'none')
     """
     if isinstance(operation, str):
-        return operation
+        # Handle string operations that might be numeric strings
+        if operation == '0':
+            return 'write'
+        elif operation == '1':
+            return 'read'
+        elif operation == '2':
+            return 'cp'
+        elif operation == '3':
+            return 'scp'
+        elif operation == '-1':
+            return 'none'
+        else:
+            return operation
     elif isinstance(operation, (int, np.integer)):
         if operation == 0:
             return 'write'
@@ -615,6 +633,8 @@ def standardize_operation(operation):
             return 'cp'
         elif operation == 3:
             return 'scp'
+        elif operation == -1:
+            return 'none'
         else:
             return str(operation)
     else:
