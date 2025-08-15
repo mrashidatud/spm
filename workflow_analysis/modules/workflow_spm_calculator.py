@@ -1494,7 +1494,7 @@ def select_best_storage_and_parallelism(combined_SPM_estT_values: Dict[str, Dict
 def extract_SPM_estT_values(WFG):
     """
     Extract and store weighted SPM values for each producer-consumer pair, 
-    including initial stage 0 nodes where the producer is 'initial_data'.
+    including initial stage 1 nodes where the producer is 'initial_data'.
     
     Args:
         WFG (nx.DiGraph): A directed weighted graph with nodes and edges containing performance attributes.
@@ -1583,7 +1583,7 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
         for i, (node_name, node_data) in enumerate(list(WFG.nodes(data=True))[:5]):
             print(f"({node_name}, {node_data})")
 
-    # Collect all unique stage orders, including fractional ones (e.g., -1, 0, 0.5, 1, 1.5, ...)
+    # Collect all unique stage orders, including fractional ones (e.g., 0.5, 1, 1.5, 2, 2.5, ...)
     all_stage_orders = sorted(set(wf_df['stageOrder'].unique()), key=lambda x: float(x))
 
     # Collect all producer-consumer pairs to process in a single pass
@@ -1602,15 +1602,15 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
     # First pass: collect regular stage-to-stage connections
     for currOrder in all_stage_orders:
         cons_nodes = stage_task_node_dict.get(currOrder, {})
+        # Skip stage 0 if it exists (legacy workflows) - should not occur with 1-based numbering
         if currOrder == 0:
-            pass
-            # # TODO: Handle stage 0
-            # if INITIAL_STAGE:
-            #     handle_initial_stage(WFG, cons_nodes)
+            if debug:
+                print(f"Warning: Found stage 0 in workflow data - this should not occur with 1-based stage numbering")
+            continue
         else:
             # Add edges between producer and consumer nodes
             prevOrder = None
-            # For fractional stageOrders (e.g., 0.5, 1.5), connect to the previous integer stage
+            # For fractional stageOrders (e.g., 0.5, 1.5, 2.5), connect to the previous integer stage
             if isinstance(currOrder, float) and currOrder % 1 != 0:
                 prevOrder = float(currOrder)
             else:
@@ -1662,7 +1662,7 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
 
                 
                 # Handle initial/final data movement
-                elif str(taskName).startswith('stage_in-0') or str(taskName).startswith('stage_out-final'):
+                elif str(taskName).startswith('stage_in-1') or str(taskName).startswith('stage_out-final'):
                     # These are already handled by the main loop or are terminal nodes
                     pass
 
