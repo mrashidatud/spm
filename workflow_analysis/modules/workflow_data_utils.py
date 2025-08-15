@@ -493,26 +493,48 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
                 if debug:
                     print(f"Debug: taskName {taskName} not found in task_order_dict")
     
-    # Label initial_data for all read operations in the first stage
-    # Find the minimum stageOrder (first stage)
+    # Label initial_data for read operations where fileName has no "write" operations in the entire workflow
     if len(wf_df) > 0:
-        min_stage_order = wf_df['stageOrder'].min()
-        if debug:
-            print(f"Debug: Minimum stage order is {min_stage_order}")
+        # Get all unique fileNames in the workflow
+        all_file_names = set()
+        for _, row in wf_df.iterrows():
+            file_name = row.get('fileName', '').strip()
+            if file_name:
+                all_file_names.add(file_name)
         
-        # For all read operations in the first stage, set prevTask to 'initial_data'
-        # if they don't already have a prevTask assigned
-        first_stage_read_mask = (
-            (wf_df['stageOrder'] == min_stage_order) & 
+        if debug:
+            print(f"Debug: Found {len(all_file_names)} unique fileNames in workflow")
+        
+        # For each fileName, check if it has any "write" operations
+        file_names_with_writes = set()
+        for _, row in wf_df.iterrows():
+            file_name = row.get('fileName', '').strip()
+            operation = standardize_operation(row.get('operation', ''))
+            if file_name and operation == 'write':
+                file_names_with_writes.add(file_name)
+        
+        if debug:
+            print(f"Debug: FileNames with write operations: {file_names_with_writes}")
+        
+        # FileNames that have no write operations are considered initial data
+        file_names_without_writes = all_file_names - file_names_with_writes
+        
+        if debug:
+            print(f"Debug: FileNames without write operations (initial data): {file_names_without_writes}")
+        
+        # For all read operations with fileNames that have no write operations, 
+        # set prevTask to 'initial_data' if they don't already have a prevTask assigned
+        initial_data_mask = (
+            (wf_df['fileName'].apply(lambda x: x.strip() in file_names_without_writes)) &
             (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read')) &
             (wf_df['prevTask'] == '')  # Only if prevTask is not already set
         )
         
         if debug:
-            first_stage_read_count = first_stage_read_mask.sum()
-            print(f"Debug: Found {first_stage_read_count} read operations in first stage without prevTask")
+            initial_data_count = initial_data_mask.sum()
+            print(f"Debug: Found {initial_data_count} read operations for initial data files without prevTask")
         
-        wf_df.loc[first_stage_read_mask, 'prevTask'] = 'initial_data'
+        wf_df.loc[initial_data_mask, 'prevTask'] = 'initial_data'
     
     # Add parallelism and numNodes information
     task_name_to_parallelism = {task: info['parallelism'] for task, info in task_order_dict.items()}
