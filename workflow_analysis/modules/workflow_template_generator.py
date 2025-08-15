@@ -106,7 +106,7 @@ def generate_template_workflow_data(
                 'taskPID': task_pid_counter + i,
                 'fileName': file_name,
                 'stageOrder': stage_order,
-                'prevTask': 'initial_data' if stage_order == 1 else 'task1',
+                'prevTask': '',  # Let the labeling functions determine initial_data
                 'aggregateFilesizeMBtask': file_size / parallelism
             }
             rows.append(row)
@@ -136,7 +136,7 @@ def generate_template_workflow_data(
                 'taskPID': task_pid_counter + len(files) + i,
                 'fileName': output_file,
                 'stageOrder': stage_order,
-                'prevTask': 'initial_data' if stage_order == 1 else 'task1',
+                'prevTask': '',  # Write operations should not have initial_data
                 'aggregateFilesizeMBtask': file_size / parallelism
             }
             rows.append(row)
