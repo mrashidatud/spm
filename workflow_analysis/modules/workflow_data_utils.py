@@ -444,7 +444,19 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
             mask = wf_df['taskPID'] == task_pid
             wf_df.loc[mask, 'taskName'] = task_info['taskName']
             wf_df.loc[mask, 'prevTask'] = task_info.get('prevTask', '')
-            wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 0)
+            wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 1)  # Default to 1, not 0
+    
+    # Normalize stageOrder only if the original workflow data contains stage 0
+    # This ensures all stages are properly shifted if the workflow starts from stage 0
+    if len(wf_df) > 0:
+        min_stage_order = wf_df['stageOrder'].min()
+        if min_stage_order == 0:
+            if debug:
+                print(f"Debug: Found stage 0 in workflow data, normalizing to 1-based (shifting all stages by +1)")
+            # Shift all stage orders by +1 to start from 1
+            wf_df['stageOrder'] = wf_df['stageOrder'] + 1
+        elif debug:
+            print(f"Debug: StageOrder already starts from {min_stage_order}, no normalization needed")
     
     # Additional logic to properly assign prevTask for read operations based on file patterns
     # This matches the logic from the original notebook
@@ -480,6 +492,27 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
             else:
                 if debug:
                     print(f"Debug: taskName {taskName} not found in task_order_dict")
+    
+    # Label initial_data for all read operations in the first stage
+    # Find the minimum stageOrder (first stage)
+    if len(wf_df) > 0:
+        min_stage_order = wf_df['stageOrder'].min()
+        if debug:
+            print(f"Debug: Minimum stage order is {min_stage_order}")
+        
+        # For all read operations in the first stage, set prevTask to 'initial_data'
+        # if they don't already have a prevTask assigned
+        first_stage_read_mask = (
+            (wf_df['stageOrder'] == min_stage_order) & 
+            (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read')) &
+            (wf_df['prevTask'] == '')  # Only if prevTask is not already set
+        )
+        
+        if debug:
+            first_stage_read_count = first_stage_read_mask.sum()
+            print(f"Debug: Found {first_stage_read_count} read operations in first stage without prevTask")
+        
+        wf_df.loc[first_stage_read_mask, 'prevTask'] = 'initial_data'
     
     # Add parallelism and numNodes information
     task_name_to_parallelism = {task: info['parallelism'] for task, info in task_order_dict.items()}

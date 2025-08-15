@@ -42,7 +42,7 @@ def generate_template_workflow_data(
     # Define task configurations
     tasks = {
         "task1": {
-            "stage_order": 0,
+            "stage_order": 1,
             "parallelism": 4,
             "num_tasks": 4,
             "operation": 1,  # Read operation
@@ -106,7 +106,7 @@ def generate_template_workflow_data(
                 'taskPID': task_pid_counter + i,
                 'fileName': file_name,
                 'stageOrder': stage_order,
-                'prevTask': 'initial_data' if stage_order == 0 else 'task1',
+                'prevTask': 'initial_data' if stage_order == 1 else 'task1',
                 'aggregateFilesizeMBtask': file_size / parallelism
             }
             rows.append(row)
@@ -136,7 +136,7 @@ def generate_template_workflow_data(
                 'taskPID': task_pid_counter + len(files) + i,
                 'fileName': output_file,
                 'stageOrder': stage_order,
-                'prevTask': 'initial_data' if stage_order == 0 else 'task1',
+                'prevTask': 'initial_data' if stage_order == 1 else 'task1',
                 'aggregateFilesizeMBtask': file_size / parallelism
             }
             rows.append(row)

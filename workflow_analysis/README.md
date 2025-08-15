@@ -92,6 +92,12 @@ The system now supports storage type transitions using cp/scp operations:
 
 ## 🔧 Key Features
 
+### 📊 Stage Numbering
+All workflows use 1-based stage numbering:
+- **First stage**: Always stage 1 (not stage 0)
+- **Subsequent stages**: Stage 2, 3, 4, etc.
+- **Automatic normalization**: Legacy workflows with stage 0 are automatically normalized
+
 ### 📊 4D Interpolation System
 - Multi-dimensional analysis based on aggregate file size, nodes, parallelism, and transfer size
 - Storage and parallelism optimization recommendations

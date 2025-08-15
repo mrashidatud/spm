@@ -387,6 +387,20 @@ csv_path = save_producer_consumer_results(spm_results, wf_df, workflow_name)
 - Each module can be used independently or as part of the complete pipeline
 - Error handling and logging are built into each module
 
+## Stage Ordering
+
+### 1-Based Stage Numbering
+All workflows in this system use 1-based stage numbering:
+- **First stage**: Always stage 1 (not stage 0)
+- **Subsequent stages**: Stage 2, 3, 4, etc.
+- **Automatic normalization**: If legacy workflows with stage 0 are detected, all stages are automatically shifted by +1
+
+### Stage Order Normalization
+The system automatically handles stage order normalization:
+- **Detection**: Checks if any workflow starts from stage 0
+- **Normalization**: If stage 0 is found, all stages are shifted by +1
+- **Result**: Ensures all workflows consistently start from stage 1
+
 ## Recent Improvements and Bug Fixes
 
 ### String Operation Standardization (Latest Update)

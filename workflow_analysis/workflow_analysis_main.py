@@ -131,7 +131,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 9: Display top results
     print("\n9. Displaying top results...")
-    display_top_sorted_averaged_rank(spm_results, top_n=100)
+    display_top_sorted_averaged_rank(spm_results, top_n=200)
     
     # Step 10: Generate visualizations (currently not working, skipping)
     print("\n10. Generating visualizations...")

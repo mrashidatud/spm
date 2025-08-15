@@ -8,7 +8,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
     """
     Insert data staging (I/O) rows into the workflow DataFrame to simulate data stage_in and stage_out.
     Rules:
-    - Initial data movement from beegfs to ssd/tmpfs for stageOrder==0 tasks with operation=='read'
+    - Initial data movement from beegfs to ssd/tmpfs for stageOrder==1 tasks with operation=='read' (after normalization)
     - Intermediate data movement for each unique taskName with stageOrder >=1, for all combinations of [beegfs-ssd, beegfs-tmpfs, ssd-ssd, tmpfs-tmpfs]
     - Final data movement from tmpfs/ssd to beegfs for the last stage
     - Handles splitting by max parallelism of 60 files per row
@@ -64,7 +64,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
     
 
     # 1. Initial data movement (first stage with read operations)
-    # Find the first stage with read operations (may not be stage 0)
+    # Find the first stage with read operations (stage 1 after normalization)
     all_read_ops = wf_df[wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read')]
     if len(all_read_ops) > 0:
         first_stage_with_read = all_read_ops['stageOrder'].min()
@@ -107,7 +107,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
                                     'taskName': f'stage_in-{taskName}',  # Virtual producer task name matching expected pattern
                                     'taskPID': '',
                                     'fileName': ','.join(file_names),
-                                    'stageOrder': -1,
+                                    'stageOrder': 0.5,  # Initial stage-in operations
                                     'prevTask': ''
                                 }
                             else:
@@ -128,14 +128,14 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
                                     'taskName': f'stage_in-{taskName}',
                                     'taskPID': '',
                                     'fileName': ','.join(file_names),
-                                    'stageOrder': -1,
+                                    'stageOrder': 0.5,  # Initial stage-in operations
                                     'prevTask': ''
                                 }
                             staging_rows.append(row)
                             if debug:
                                 print(f"Added initial data movement row: {row}")
 
-    # 2. Intermediate data movement (stageOrder >=1)
+    # 2. Intermediate data movement (stageOrder >= 1)
     for taskName, group in wf_df[wf_df['stageOrder'] >= 1].groupby('taskName'):
         # Skip if taskName already contains 'stage_out' or 'stage_in'
         if 'stage_out' in taskName or 'stage_in' in taskName:

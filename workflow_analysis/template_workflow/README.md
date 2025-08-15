@@ -2,6 +2,8 @@
 
 This directory contains a template workflow system designed for testing, development, and learning the workflow analysis pipeline. The template demonstrates a simple producer-consumer relationship with artificial data that mimics real workflow patterns.
 
+**Important Note**: All workflows in this system use 1-based stage numbering. The first stage is always stage 1, not stage 0. This ensures consistent stage ordering across all workflows.
+
 ## 🚀 Using SPM with User-Defined Workflows
 
 To use SPM (Storage Performance Matching) with user-defined workflows that have trace data other than datalife I/O traces, users need two key components:
@@ -17,7 +19,7 @@ Define your workflow structure in a JSON file that specifies:
 ```json
 {
     "task1": {
-        "stage_order": 0,
+        "stage_order": 1,
         "parallelism": 4,
         "num_tasks": 4,
         "predecessors": {
@@ -30,7 +32,7 @@ Define your workflow structure in a JSON file that specifies:
         ]
     },
     "task2": {
-        "stage_order": 1,
+        "stage_order": 2,
         "parallelism": 2,
         "num_tasks": 2,
         "predecessors": {
@@ -61,10 +63,10 @@ Create a CSV file containing your workflow trace data with the required columns:
 **Example CSV Structure:**
 ```csv
 operation,totalTime,aggregateFilesizeMB,parallelism,taskName,fileName,stageOrder,storageType
-1,8.53,94.51,4,task1,input_data_1.txt,0,beegfs
-0,6.12,85.23,4,task1,task1_output_1.dat,0,beegfs
-1,12.45,78.91,2,task2,task1_output_1.dat,1,beegfs
-0,9.67,92.34,2,task2,final_result_1.out,1,beegfs
+1,8.53,94.51,4,task1,input_data_1.txt,1,beegfs
+0,6.12,85.23,4,task1,task1_output_1.dat,1,beegfs
+1,12.45,78.91,2,task2,task1_output_1.dat,2,beegfs
+0,9.67,92.34,2,task2,final_result_1.out,2,beegfs
 ```
 
 ### 3. **Generate Template Example**
@@ -163,12 +165,12 @@ The workflow CSV contains columns for operation type (0=write, 1=read), timing, 
 
 ## 🔄 Workflow Execution
 
-### Stage 0: Task1 (Producer)
+### Stage 1: Task1 (Producer)
 - Reads from `input_data_*.txt` files
 - Writes `task1_output_*.dat` files
 - 4 parallel tasks
 
-### Stage 1: Task2 (Consumer)  
+### Stage 2: Task2 (Consumer)  
 - Reads from `task1_output_*.dat` files
 - Writes `final_result_*.out` files
 - 2 parallel tasks
