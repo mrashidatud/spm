@@ -396,78 +396,63 @@ def assign_task_names(tasks: Dict[str, Dict[str, Any]],
     return tasks
 
 
-def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filename: str = "workflow_data.csv") -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
-    """
-    Load and process workflow data.
-    
-    Parameters:
-    - wf_name: Name of the workflow to load
-    - debug: Whether to enable debug print statements
-    - csv_filename: Name of the CSV file to load (default: "workflow_data.csv")
-    
-    Returns:
-    - DataFrame: Processed workflow data
-    - Dict: Task order dictionary
-    - Dict: Workflow PID script dictionary
-    """
-    # Get configuration for the workflow
+def _load_workflow_config(wf_name: str) -> Tuple[Dict, Dict, List[int]]:
+    """Load workflow configuration and task ordering."""
     config = TEST_CONFIGS[wf_name]
     script_order = config["SCRIPT_ORDER"]
     num_nodes_list = config["NUM_NODES_LIST"]
-    allowed_parallelism = config["ALLOWED_PARALLELISM"]
     exp_data_path = config["exp_data_path"]
-    test_folders = config["test_folders"]
     
     # Load task ordering json file
-    task_order_dict = {}
     with open(f"{exp_data_path}/{script_order}.json") as f:
         task_order_dict = json.load(f)
     
-    # Get workflow data
-    wf_df = get_test_folder_dfs(test_folders, WF_PARAMS, TARGET_TASKS, storage_type="pfs", exp_data_path=exp_data_path, debug=debug, csv_filename=csv_filename)
-    
-    # Get workflow PID script dictionary
-    all_wf_dict = get_wf_pid_script_dict(test_folders, exp_data_path)
-    
-    # Assign task names
-    all_wf_dict = assign_task_names(all_wf_dict, task_order_dict)
-    
-    # Add task information to DataFrame
-    wf_df['prevTask'] = ""
-    # Only set taskName to "unknown" if it doesn't already exist (for CSV data)
+    return config, task_order_dict, num_nodes_list
+
+
+def _assign_basic_task_info(wf_df: pd.DataFrame, all_wf_dict: Dict, task_order_dict: Dict) -> pd.DataFrame:
+    """Assign basic task information to DataFrame."""
+    # Initialize columns if they don't exist
+    if 'prevTask' not in wf_df.columns:
+        wf_df['prevTask'] = ""
     if 'taskName' not in wf_df.columns:
         wf_df['taskName'] = "unknown"
     
-    # Update DataFrame with task information (only if all_wf_dict is not empty)
+    # Update DataFrame with task information
     if all_wf_dict:
         for task_pid, task_info in all_wf_dict.items():
             mask = wf_df['taskPID'] == task_pid
             wf_df.loc[mask, 'taskName'] = task_info['taskName']
             wf_df.loc[mask, 'prevTask'] = task_info.get('prevTask', '')
-            wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 1)  # Default to 1, not 0
+            wf_df.loc[mask, 'stageOrder'] = task_info.get('stage_order', 1)
     
-    # Normalize stageOrder only if the original workflow data contains stage 0
-    # This ensures all stages are properly shifted if the workflow starts from stage 0
+    return wf_df
+
+
+def _normalize_stage_orders(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
+    """Normalize stage orders to start from 1."""
     if len(wf_df) > 0:
         min_stage_order = wf_df['stageOrder'].min()
         if min_stage_order == 0:
             if debug:
                 print(f"Debug: Found stage 0 in workflow data, normalizing to 1-based (shifting all stages by +1)")
-            # Shift all stage orders by +1 to start from 1
             wf_df['stageOrder'] = wf_df['stageOrder'] + 1
         elif debug:
             print(f"Debug: StageOrder already starts from {min_stage_order}, no normalization needed")
     
-    # Additional logic to properly assign prevTask for read operations based on file patterns
-    # This matches the logic from the original notebook
+    return wf_df
+
+
+def _assign_prev_tasks_from_patterns(wf_df: pd.DataFrame, task_order_dict: Dict, debug: bool = False) -> pd.DataFrame:
+    """Assign prevTask based on file patterns for read operations."""
     if debug:
         print("Debug: Starting prevTask assignment for read operations...")
+    
     for index, row in wf_df.iterrows():
-        if standardize_operation(row['operation']) == 'write':  # Write operation
+        if row['operation'] == 'write':  # Already standardized
             if row['taskName'] == '':
                 wf_df.at[index, 'taskName'] = 'none'
         else:  # Read operation
-            # Adjust read task predecessors based on file patterns
             taskName = row['taskName']
             fileName = row['fileName']
             
@@ -493,64 +478,222 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
                 if debug:
                     print(f"Debug: taskName {taskName} not found in task_order_dict")
     
-    # Label initial_data for read operations where fileName has no "write" operations in the entire workflow
-    if len(wf_df) > 0:
-        # Get all unique fileNames in the workflow
-        all_file_names = set()
-        for _, row in wf_df.iterrows():
-            file_name = row.get('fileName', '').strip()
-            if file_name:
-                all_file_names.add(file_name)
-        
-        if debug:
-            print(f"Debug: Found {len(all_file_names)} unique fileNames in workflow")
-        
-        # For each fileName, check if it has any "write" operations
-        file_names_with_writes = set()
-        for _, row in wf_df.iterrows():
-            file_name = row.get('fileName', '').strip()
-            operation = standardize_operation(row.get('operation', ''))
-            if file_name and operation == 'write':
-                file_names_with_writes.add(file_name)
-        
-        if debug:
-            print(f"Debug: FileNames with write operations: {file_names_with_writes}")
-        
-        # FileNames that have no write operations are considered initial data
-        file_names_without_writes = all_file_names - file_names_with_writes
-        
-        if debug:
-            print(f"Debug: FileNames without write operations (initial data): {file_names_without_writes}")
-        
-        # For all read operations with fileNames that have no write operations, 
-        # set prevTask to 'initial_data' if they don't already have a prevTask assigned
-        initial_data_mask = (
-            (wf_df['fileName'].apply(lambda x: x.strip() in file_names_without_writes)) &
-            (wf_df['operation'].apply(lambda x: standardize_operation(x) == 'read')) &
-            (wf_df['prevTask'] == '')  # Only if prevTask is not already set
-        )
-        
-        if debug:
-            initial_data_count = initial_data_mask.sum()
-            print(f"Debug: Found {initial_data_count} read operations for initial data files without prevTask")
-        
-        wf_df.loc[initial_data_mask, 'prevTask'] = 'initial_data'
+    return wf_df
+
+
+def _label_initial_data(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
+    """Label initial_data for read operations where there's no write operation for the same fileName at stageOrder-1."""
+    if len(wf_df) == 0:
+        return wf_df
     
-    # Add parallelism and numNodes information
+    print(f"\n=== _label_initial_data START ===")
+    print(f"Input DataFrame shape: {wf_df.shape}")
+    
+    # Get all read operations with fileName and stageOrder
+    read_ops = wf_df[wf_df['operation'] == 'read'][['fileName', 'stageOrder']].copy()
+    read_ops['fileName'] = read_ops['fileName'].str.strip()
+    
+    # Get all write operations with fileName and stageOrder
+    write_ops = wf_df[wf_df['operation'] == 'write'][['fileName', 'stageOrder']].copy()
+    write_ops['fileName'] = write_ops['fileName'].str.strip()
+    
+    if debug:
+        print(f"Debug: Found {len(read_ops)} read operations and {len(write_ops)} write operations")
+        print(f"Debug: Read operations:\n{read_ops}")
+        print(f"Debug: Write operations:\n{write_ops}")
+    
+    # For each read operation, check if there's a write operation for the same fileName at stageOrder-1
+    initial_data_mask = wf_df['prevTask'] == ''  # Start with empty prevTask rows
+    
+    for idx, row in wf_df.iterrows():
+        if row['operation'] == 'read' and row['prevTask'] == '':
+            file_name = row['fileName'].strip()
+            stage_order = row['stageOrder']
+            
+            # Check if there's a write operation for this fileName at stageOrder-1
+            has_write_at_prev_stage = write_ops[
+                (write_ops['fileName'] == file_name) & 
+                (write_ops['stageOrder'] == stage_order - 1)
+            ].shape[0] > 0
+            
+            if not has_write_at_prev_stage:
+                # No write operation at previous stage, this is initial_data
+                initial_data_mask.loc[idx] = True
+                if debug:
+                    print(f"Debug: {file_name} at stage {stage_order} qualifies for initial_data (no write at stage {stage_order-1})")
+            else:
+                if debug:
+                    print(f"Debug: {file_name} at stage {stage_order} does NOT qualify (has write at stage {stage_order-1})")
+    
+    # Apply the mask to label initial_data
+    wf_df.loc[initial_data_mask & (wf_df['operation'] == 'read'), 'prevTask'] = 'initial_data'
+    
+    # FINAL VERIFICATION: Check what was actually labeled
+    labeled_rows = wf_df[wf_df['prevTask'] == 'initial_data']
+    print(f"\n=== FINAL CHECK: {len(labeled_rows)} rows labeled as 'initial_data' ===")
+    for idx, row in labeled_rows.iterrows():
+        print(f"Labeled row {idx}: fileName='{row['fileName']}', operation='{row['operation']}', stageOrder={row['stageOrder']}")
+        
+        if row['operation'] != 'read':
+            print(f"  *** CRITICAL ERROR: Write operation labeled as 'initial_data'! ***")
+    
+    print(f"=== _label_initial_data END ===\n")
+    return wf_df
+
+
+def _label_final_data(wf_df: pd.DataFrame, debug: bool = False) -> pd.DataFrame:
+    """Label final_data for write operations where there's no read operation for the same fileName at stageOrder+1."""
+    if len(wf_df) == 0:
+        return wf_df
+    
+    print(f"\n=== _label_final_data START ===")
+    print(f"Input DataFrame shape: {wf_df.shape}")
+    
+    # Get all write operations with fileName and stageOrder
+    write_ops = wf_df[wf_df['operation'] == 'write'][['fileName', 'stageOrder']].copy()
+    write_ops['fileName'] = write_ops['fileName'].str.strip()
+    
+    # Get all read operations with fileName and stageOrder
+    read_ops = wf_df[wf_df['operation'] == 'read'][['fileName', 'stageOrder']].copy()
+    read_ops['fileName'] = read_ops['fileName'].str.strip()
+    
+    if debug:
+        print(f"Debug: Found {len(write_ops)} write operations and {len(read_ops)} read operations")
+        print(f"Debug: Write operations:\n{write_ops}")
+        print(f"Debug: Read operations:\n{read_ops}")
+    
+    # For each write operation, check if there's a read operation for the same fileName at stageOrder+1
+    final_data_mask = pd.Series([False] * len(wf_df), index=wf_df.index)  # Start with all False
+    
+    for idx, row in wf_df.iterrows():
+        if row['operation'] == 'write':  # Process all write operations regardless of prevTask
+            file_name = row['fileName'].strip()
+            stage_order = row['stageOrder']
+            
+            # Check if there's a read operation for this fileName at stageOrder+1
+            has_read_at_next_stage = read_ops[
+                (read_ops['fileName'] == file_name) & 
+                (read_ops['stageOrder'] == stage_order + 1)
+            ].shape[0] > 0
+            
+            if not has_read_at_next_stage:
+                # No read operation at next stage, this is final_data
+                final_data_mask.loc[idx] = True
+                if debug:
+                    print(f"Debug: {file_name} at stage {stage_order} qualifies for final_data (no read at stage {stage_order+1})")
+            else:
+                if debug:
+                    print(f"Debug: {file_name} at stage {stage_order} does NOT qualify (has read at stage {stage_order+1})")
+    
+    # Apply the mask to label final_data (overwrite any existing prevTask values)
+    wf_df.loc[final_data_mask & (wf_df['operation'] == 'write'), 'prevTask'] = 'final_data'
+    
+    # FINAL VERIFICATION: Check what was actually labeled
+    labeled_rows = wf_df[wf_df['prevTask'] == 'final_data']
+    print(f"\n=== FINAL CHECK: {len(labeled_rows)} rows labeled as 'final_data' ===")
+    for idx, row in labeled_rows.iterrows():
+        print(f"Labeled row {idx}: fileName='{row['fileName']}', operation='{row['operation']}', stageOrder={row['stageOrder']}")
+        
+        if row['operation'] != 'write':
+            print(f"  *** CRITICAL ERROR: Read operation labeled as 'final_data'! ***")
+    
+    print(f"=== _label_final_data END ===\n")
+    return wf_df
+
+
+def _add_parallelism_info(wf_df: pd.DataFrame, task_order_dict: Dict, num_nodes_list: List[int]) -> pd.DataFrame:
+    """Add parallelism and node information to DataFrame."""
     task_name_to_parallelism = {task: info['parallelism'] for task, info in task_order_dict.items()}
     task_name_to_num_tasks = {task: info['num_tasks'] for task, info in task_order_dict.items()}
     
-    # Update DataFrame with parallelism and numNodes
     for task_name, parallelism in task_name_to_parallelism.items():
         mask = wf_df['taskName'] == task_name
         wf_df.loc[mask, 'parallelism'] = parallelism
         wf_df.loc[mask, 'numTasks'] = task_name_to_num_tasks.get(task_name, 1)
         wf_df.loc[mask, 'numNodesList'] = str(num_nodes_list)
-        wf_df.loc[mask, 'numNodes'] = 1  # Default to 1, can be updated based on actual data
+        wf_df.loc[mask, 'numNodes'] = 1
         wf_df.loc[mask, 'tasksPerNode'] = task_name_to_num_tasks.get(task_name, 1)
     
-    # Standardize all operations to strings
+    return wf_df
+
+
+def _final_verification(wf_df: pd.DataFrame, debug: bool = False) -> None:
+    """Perform final verification of labeling."""
+    if not debug:
+        return
+    
+    print("\n=== FINAL VERIFICATION ===")
+    
+    # Check for write operations with initial_data label
+    write_with_initial_data = wf_df[
+        (wf_df['operation'] == 'write') & 
+        (wf_df['prevTask'] == 'initial_data')
+    ]
+    if len(write_with_initial_data) > 0:
+        print(f"ERROR: Found {len(write_with_initial_data)} write operations incorrectly labeled as 'initial_data':")
+        for _, row in write_with_initial_data.iterrows():
+            print(f"  - {row['fileName']} with operation {row['operation']} at stage {row['stageOrder']}")
+    
+    # Check for read operations with final_data label
+    read_with_final_data = wf_df[
+        (wf_df['operation'] == 'read') & 
+        (wf_df['prevTask'] == 'final_data')
+    ]
+    if len(read_with_final_data) > 0:
+        print(f"ERROR: Found {len(read_with_final_data)} read operations incorrectly labeled as 'final_data':")
+        for _, row in read_with_final_data.iterrows():
+            print(f"  - {row['fileName']} with operation {row['operation']} at stage {row['stageOrder']}")
+    
+    # Summary of labeling
+    initial_data_count = len(wf_df[(wf_df['prevTask'] == 'initial_data')])
+    final_data_count = len(wf_df[(wf_df['prevTask'] == 'final_data')])
+    print(f"Summary: {initial_data_count} rows labeled as 'initial_data', {final_data_count} rows labeled as 'final_data'")
+
+
+def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filename: str = "workflow_data.csv") -> Tuple[pd.DataFrame, Dict[str, Any], Dict[str, Any]]:
+    """
+    Load and process workflow data.
+    
+    Parameters:
+    - wf_name: Name of the workflow to load
+    - debug: Whether to enable debug print statements
+    - csv_filename: Name of the CSV file to load (default: "workflow_data.csv")
+    
+    Returns:
+    - DataFrame: Processed workflow data
+    - Dict: Task order dictionary
+    - Dict: Workflow PID script dictionary
+    """
+    # Load configuration and task ordering
+    config, task_order_dict, num_nodes_list = _load_workflow_config(wf_name)
+    
+    # Load workflow data
+    wf_df = get_test_folder_dfs(
+        config["test_folders"], WF_PARAMS, TARGET_TASKS, 
+        storage_type="pfs", exp_data_path=config["exp_data_path"], 
+        debug=debug, csv_filename=csv_filename
+    )
+    
+    # Get workflow PID script dictionary and assign task names
+    all_wf_dict = get_wf_pid_script_dict(config["test_folders"], config["exp_data_path"])
+    all_wf_dict = assign_task_names(all_wf_dict, task_order_dict)
+    
+    # Process workflow data
+    wf_df = _assign_basic_task_info(wf_df, all_wf_dict, task_order_dict)
+    wf_df = _normalize_stage_orders(wf_df, debug)
+    wf_df = _assign_prev_tasks_from_patterns(wf_df, task_order_dict, debug)
+    
+    # Standardize operations BEFORE labeling
     wf_df['operation'] = wf_df['operation'].apply(standardize_operation)
+    if debug:
+        print(f"Operations standardized. Operation counts: {wf_df['operation'].value_counts()}")
+    
+    wf_df = _label_initial_data(wf_df, debug)
+    wf_df = _label_final_data(wf_df, debug)
+    wf_df = _add_parallelism_info(wf_df, task_order_dict, num_nodes_list)
+    
+    # Final verification
+    _final_verification(wf_df, debug)
     
     # Expand DataFrame for multi-node configurations if enabled
     if MULTI_NODES:
@@ -558,7 +701,7 @@ def load_workflow_data(wf_name: str = DEFAULT_WF, debug: bool = False, csv_filen
         if debug:
             print(f"Expanded DataFrame shape after multi-node expansion: {wf_df.shape}")
     
-    # For rows when parallelism is 1, update numNodes to 1
+    # Update single-node configurations
     for index, row in wf_df.iterrows():
         if row['parallelism'] == 1:
             wf_df.loc[index, 'numNodes'] = 1
