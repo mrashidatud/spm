@@ -11,7 +11,7 @@ NORMALIZE = False
 DEBUG = True
 
 # Storage types
-STORAGE_LIST = ['ssd', 'beegfs'] # 'nfs', 'pfs' , 'tmpfs'
+STORAGE_LIST = ['ssd', 'beegfs', 'tmpfs'] # 'nfs', 'pfs' , 'tmpfs'
 
 # Data size mappings in KB
 DATA_SIZE_KB = {

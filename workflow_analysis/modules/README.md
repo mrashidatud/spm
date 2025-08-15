@@ -232,10 +232,15 @@ results = run_workflow_analysis("ddmd_4n_l", save_results=True)
 - `get_file_groups()`: Group files for parallel processing with max parallelism limits
 
 **Key Features**:
+- **Universal Virtual Producers**: Creates `stage_in-{taskName}` operations with `operation: 'none'` for ALL tasks (not just first stage)
+- **Universal Virtual Consumers**: Creates `stage_out-{taskName}` operations with `operation: 'none'` for ALL tasks
 - **Storage Type Transitions**: Handles transitions between different storage types (beegfs-ssd, beegfs-tmpfs, etc.)
 - **Operation Standardization**: Uses `standardize_operation()` for consistent string operations
 - **Parallelism Management**: Splits operations by max parallelism of 60 files per row
 - **Stage Simulation**: Simulates stage_in and stage_out operations for workflow analysis
+- **Virtual Operation Placement**: 
+  - Virtual "none" operations for stage_in are placed at `stageOrder - 0.5` (before the task)
+  - Virtual "none" operations for stage_out are placed at `stageOrder + 0.5` (after the task)
 
 **Inputs**:
 - Workflow DataFrame with standardized string operations
@@ -387,9 +392,70 @@ csv_path = save_producer_consumer_results(spm_results, wf_df, workflow_name)
 - Each module can be used independently or as part of the complete pipeline
 - Error handling and logging are built into each module
 
+## Stage Ordering
+
+### 1-Based Stage Numbering
+All workflows in this system use 1-based stage numbering:
+- **First stage**: Always stage 1 (not stage 0)
+- **Subsequent stages**: Stage 2, 3, 4, etc.
+- **Automatic normalization**: If legacy workflows with stage 0 are detected, all stages are automatically shifted by +1
+
+### Stage Order Normalization
+The system automatically handles stage order normalization:
+- **Detection**: Checks if any workflow starts from stage 0
+- **Normalization**: If stage 0 is found, all stages are shifted by +1
+- **Result**: Ensures all workflows consistently start from stage 1
+
 ## Recent Improvements and Bug Fixes
 
-### String Operation Standardization (Latest Update)
+### Universal Virtual Producer and Consumer Operations (Latest Update)
+**Issue**: Virtual "none" operations were only being created for the first stage (stageOrder == 1) and limited stage_out operations, limiting the SPM analysis coverage.
+
+**Solutions Implemented**:
+
+1. **Universal Virtual Producer Creation**:
+   - **All Tasks Coverage**: Now creates `stage_in-{taskName}` operations with `operation: 'none'` for ALL tasks in the workflow
+   - **Consistent Stage Placement**: Virtual operations are placed at `stageOrder - 0.5` for each task
+   - **Virtual Storage Type**: All virtual producers use `storageType: 'beegfs'` for consistent SPM calculations
+
+2. **Universal Virtual Consumer Creation**:
+   - **All Tasks Coverage**: Now creates `stage_out-{taskName}` operations with `operation: 'none'` for ALL tasks in the workflow
+   - **Consumer Stage Placement**: Virtual operations are placed at `stageOrder + 0.5` for each task (following consumer pattern)
+   - **Virtual Storage Type**: All virtual consumers use `storageType: 'beegfs'` for consistent SPM calculations
+
+3. **Enhanced Data Staging Logic** (`workflow_data_staging.py`):
+   - **New Section 1b**: Added dedicated section for creating virtual "none" operations for all stage_in tasks
+   - **New Section 1c**: Added dedicated section for creating virtual "none" operations for all stage_out tasks
+   - **Universal Task Processing**: Processes all tasks regardless of stage order
+   - **Proper Stage Ordering**: 
+     - Virtual stage_in operations are correctly positioned before their corresponding tasks
+     - Virtual stage_out operations are correctly positioned after their corresponding tasks
+   - **Consistent Naming**: Uses `stage_in-{taskName}` and `stage_out-{taskName}` patterns for all virtual operations
+
+4. **Improved SPM Analysis Coverage**:
+   - **Complete Virtual Producer Coverage**: Every task now has a virtual producer that can be matched in SPM calculations
+   - **Complete Virtual Consumer Coverage**: Every task now has a virtual consumer that can be matched in SPM calculations
+   - **Enhanced `handle_stage_in_none_producers()` Function**: Can now process virtual producers for all tasks, not just the first stage
+   - **Better Workflow Modeling**: All tasks can have virtual data staging operations represented for both input and output
+
+**Example Output**:
+For a workflow with tasks `task1`, `task2`, `task3`, the system now creates:
+- `stage_in-task1` with operation "none" at stage 0.5
+- `stage_out-task1` with operation "none" at stage 1.5
+- `stage_in-task2` with operation "none" at stage 1.5  
+- `stage_out-task2` with operation "none" at stage 2.5
+- `stage_in-task3` with operation "none" at stage 2.5
+- `stage_out-task3` with operation "none" at stage 3.5
+
+**Virtual Operation Characteristics**:
+- `operation: 'none'` (virtual operation)
+- `storageType: 'beegfs'` (virtual storage)
+- `totalTime: 0` (no actual time cost)
+- `trMiB: 1.0` (dummy transfer rate)
+- **Stage_in**: `stageOrder: taskStage - 0.5` (positioned before actual task)
+- **Stage_out**: `stageOrder: taskStage + 0.5` (positioned after actual task)
+
+### String Operation Standardization (Previous Update)
 **Issue**: Inconsistent operation representation across modules, mixing integers and strings for operations.
 
 **Solutions Implemented**:

@@ -1,6 +1,6 @@
 {
     "task1": {
-        "stage_order": 0,
+        "stage_order": 1,
         "parallelism": 4,
         "num_tasks": 4,
         "predecessors": {
@@ -16,7 +16,7 @@
         ]
     },
     "task2": {
-        "stage_order": 1,
+        "stage_order": 2,
         "parallelism": 2,
         "num_tasks": 2,
         "predecessors": {
