@@ -47,7 +47,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 1: Load workflow data
     print("\n1. Loading workflow data...")
-    wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name, csv_filename=csv_filename)
+    wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name, csv_filename=csv_filename, debug=True)
 
 
     # Get configuration for the workflow
