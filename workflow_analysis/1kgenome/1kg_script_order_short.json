@@ -1,0 +1,18 @@
+{
+    "individuals": {
+        "stage_order": 1,
+        "parallelism": 300,
+        "num_tasks": 300,
+        "predecessors": {
+            "initial_data": {
+                "inputs": [
+                    "ALL\\.chr.*\\.250000\\.vcf",
+                    "columns\\.txt"
+                ]
+            }
+        },
+        "outputs": [
+            "chr.*n-.*-.*\\.tar\\.gz"
+        ]
+    }
+}
