@@ -69,7 +69,7 @@ TEST_CONFIGS = {
         "NUM_NODES_LIST": [8, 16, 32],
         "ALLOWED_PARALLELISM": [1, 8, 15, 30],
         "exp_data_path": "./pyflextrkr",
-        "test_folders": ['summer_sam_4n_pfs_s9']
+        "test_folders": ['summer_sam_4n96p_pfs_s9']
     },
     "pyflex_s9_48f": {
         "SCRIPT_ORDER": "pyflextrkr_s9_script_order",

@@ -2,6 +2,130 @@
 
 This directory contains the core Python modules for workflow analysis and SPM (Storage Performance Modeling) calculations. These modules provide a modular architecture for analyzing workflow performance across different storage systems and parallelism configurations.
 
+## Scripts Overview
+
+The workflow analysis pipeline has been split into two separate scripts for better modularity:
+
+### 1. `workflow_data_loader.py` - Data Loading Phase
+
+**Purpose**: Loads all datalife JSON files for a given workflow and collects them into a CSV dataframe.
+
+**What it does**:
+- Loads workflow data from JSON files using the `load_workflow_data` function
+- Processes and transforms the raw data
+- Saves the processed workflow data to CSV format
+- This corresponds to Step 1 of the workflow analysis pipeline
+
+**Usage**:
+```bash
+# Load data for a specific workflow
+python workflow_data_loader.py --workflow <workflow_name>
+
+# List available workflows
+python workflow_data_loader.py --list-workflows
+
+# Specify output directory
+python workflow_data_loader.py --workflow <workflow_name> --output-dir ./my_data
+
+# Use a different CSV filename
+python workflow_data_loader.py --workflow <workflow_name> --csv-filename my_workflow.csv
+```
+
+**Output**: 
+- `./analysis_data/{workflow_name}_workflow_data.csv` - The processed workflow data
+
+### 2. `workflow_analyzer.py` - Analysis Phase
+
+**Purpose**: Performs complete workflow analysis on a CSV dataframe.
+
+**What it does**:
+- Takes a CSV file as input (created by the loader)
+- Creates a working copy of the data (original CSV file remains unchanged)
+- Performs all analysis steps (I/O breakdown, staging rows, SPM calculations, etc.)
+- Generates results and visualizations
+- This corresponds to Steps 2+ of the workflow analysis pipeline
+
+**Important**: The script **does not modify** the input CSV file, so you can safely run it multiple times with the same input.
+
+**Usage**:
+```bash
+# Analyze workflow from CSV file (workflow name auto-extracted from filename)
+python workflow_analyzer.py path/to/my_workflow_workflow_data.csv
+
+# Specify workflow name explicitly (overrides auto-extraction)
+python workflow_analyzer.py path/to/workflow_data.csv --workflow my_workflow
+
+# Use different IOR data path
+python workflow_analyzer.py path/to/workflow_data.csv --ior-data path/to/ior_data.csv
+
+# Don't save results to files
+python workflow_analyzer.py path/to/workflow_data.csv --no-save
+```
+
+**Workflow Name Auto-Extraction**:
+The script automatically extracts the workflow name from CSV filenames following the pattern:
+- `{workflow_name}_workflow_data*.csv` → extracts `{workflow_name}`
+- Examples:
+  - `my_workflow_workflow_data.csv` → `my_workflow`
+  - `ddmd_4n_l_workflow_data.csv` → `ddmd_4n_l`
+  - `test_workflow_workflow_data_v2.csv` → `test_workflow`
+- Fallback: If the pattern doesn't match, removes `.csv` extension
+
+**Output**:
+- `./analysis_data/{workflow_name}_original_workflow_data.csv` - Original data before modifications
+- `./analysis_data/{workflow_name}_processed_workflow_data.csv` - Modified data with staging rows and transfer rates
+- `./analysis_data/{workflow_name}_spm_results.json` - SPM calculation results
+- `./workflow_spm_results/{workflow_name}_filtered_spm_results.csv` - Filtered SPM results
+- `./workflow_spm_results/{workflow_name}_intermediate_estT_results.csv` - Intermediate DAG edges with estT values (clean format)
+
+### Typical Workflow
+
+The typical workflow is:
+
+1. **Load Data**: Use `workflow_data_loader.py` to load and process JSON files
+2. **Analyze Data**: Use `workflow_analyzer.py` to analyze the CSV file
+
+**Example**:
+```bash
+# Step 1: Load data for a workflow
+python workflow_data_loader.py --workflow my_workflow
+
+# Step 2: Analyze the loaded data
+python workflow_analyzer.py ./analysis_data/my_workflow_workflow_data.csv
+```
+
+### Benefits of This Split
+
+1. **Separation of Concerns**: Data loading and analysis are now separate
+2. **Reusability**: You can analyze the same CSV file multiple times without reloading JSON data
+3. **Flexibility**: You can modify the CSV file manually and re-analyze
+4. **Debugging**: Easier to debug issues in either the loading or analysis phase
+5. **Performance**: Avoid reloading JSON files when you only need to re-run analysis
+
+### Intermediate Results CSV Generation
+
+The `workflow_spm_calculator.py` module now automatically generates detailed intermediate results in CSV format during the SPM calculation process. This provides granular insights into the workflow graph structure and per-task time estimations.
+
+**Generation Process**:
+- **Automatic Creation**: The intermediate CSV is generated automatically when `calculate_spm_for_workflow()` is called with a `workflow_name` parameter
+- **Location**: Saved to `./workflow_spm_results/{workflow_name}_intermediate_estT_results.csv`
+- **Content**: Contains detailed information about each edge in the workflow graph
+- **Structure**: One row per estT key combination for maximum granularity
+
+**Key Features**:
+- **Per-Task Time Estimation**: Detailed time estimates for each producer-consumer pair without SPM values
+- **Stage Order Tracking**: Preserves producer and consumer stage order information
+- **Edge Key Generation**: Creates unique edge keys for traceability
+- **Complete Edge Information**: All edge attributes preserved for analysis
+- **Granular Analysis**: Each storage/parallelism combination gets its own row
+
+**Use Cases**:
+- **Debugging**: Detailed inspection of workflow graph structure
+- **Analysis**: Granular performance analysis of individual edges
+- **Machine Learning**: Complete data points for ML model training
+- **Validation**: Verification of edge creation and attribute assignment
+- **Research**: Detailed workflow performance research and analysis
+
 ## Module Overview
 
 ### 1. `workflow_config.py`
@@ -116,16 +240,17 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 ```
 
 ### 4. `workflow_spm_calculator.py`
-**Purpose**: SPM (Storage Performance Modeling) calculations and workflow graph construction with robust validation.
+**Purpose**: SPM (Storage Performance Modeling) calculations and workflow graph construction with robust validation and intermediate results logging.
 
 **Key Functions**:
 - `add_workflow_graph_nodes()`: Add nodes to workflow graph
-- `add_producer_consumer_edge()`: Add edges between producer-consumer pairs
+- `add_producer_consumer_edge()`: Add edges between producer-consumer pairs with intermediate CSV logging
 - `calculate_spm_for_workflow()`: Calculate SPM values for entire workflow
 - `convert_operation_to_string()`: Convert numeric operations to string operations
 - `filter_storage_options()`: Filter storage options based on workflow constraints
 - `select_best_storage_and_parallelism()`: Select optimal storage and parallelism
 - `normalize_estT_values()`: Normalize estimated time values
+- `extract_SPM_estT_values()`: Extract SPM and estT values from workflow graph
 
 **Key Features**:
 - **Negative SPM Prevention**: Comprehensive validation to prevent negative SPM values
@@ -134,6 +259,9 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - **Enhanced Debugging**: Detailed warnings and error messages for troubleshooting
 - **Improved Edge Detection**: Better handling of stage_in and stage_out operations
 - **Operation Standardization**: Converts numeric operations to strings for consistent processing
+- **Intermediate Results Logging**: Saves detailed DAG edge information to CSV for analysis
+- **Stage Order Tracking**: Preserves and logs producer/consumer stage order information
+- **Edge Key Generation**: Creates unique edge keys for traceability and analysis
 
 **Inputs**:
 - Workflow DataFrame with estimated transfer rates and standardized string operations
@@ -147,6 +275,7 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - Filtered storage options
 - Best storage and parallelism selections
 - Validation warnings and error messages
+- **Intermediate CSV Results**: `{workflow_name}_intermediate_estT_results.csv` with detailed edge information
 
 **Operation Handling**:
 - Uses `convert_operation_to_string()` to ensure consistent string operations
@@ -159,14 +288,47 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list, allo
 - Prevents negative SPM calculations
 - Handles edge cases with zero or invalid values
 
+**Intermediate Results CSV Structure**:
+The `add_producer_consumer_edge()` function generates a detailed CSV file with one row per estT key combination:
+
+**Main Columns** (15): Basic producer-consumer information
+- `producer_node`, `consumer_node`, `producer_task`, `consumer_task`
+- `producer_stage_order`, `consumer_stage_order`
+- `producer_operation`, `consumer_operation`, `producer_storage`, `consumer_storage`
+- `producer_parallelism`, `consumer_parallelism`, `producer_filesize_mb`, `consumer_filesize_mb`
+- `file_name`
+
+**Edge Columns** (8): Edge-specific attributes
+- `edge_key`, `edge_prod_aggregateFilesizeMB`, `edge_cons_aggregateFilesizeMB`
+- `edge_prod_max_parallelism`, `edge_cons_max_parallelism`
+- `edge_prod_stage_order`, `edge_cons_stage_order`
+- `edge_prod_task_name`, `edge_cons_task_name`, `edge_file_name`
+
+**estT Columns** (2): Individual estT keys
+- `estT_prod_key`: Producer estT key (e.g., `estT_prod_beegfs_8p`)
+- `estT_cons_key`: Consumer estT key (e.g., `estT_cons_ssd_16p`)
+
+**Structure**:
+- **One row per estT combination**: Each row represents a specific producer-consumer-storage-parallelism combination
+- **Individual keys**: Each estT key combination gets its own row, making analysis easier
+- **Complete traceability**: All edge information preserved for each combination
+
+**Benefits**:
+- **Individual analysis**: Each estT key combination can be analyzed separately
+- **Easier filtering**: Can filter by specific storage types or parallelism levels
+- **Better for ML**: Each row is a complete data point for machine learning
+- **Complete data**: All estT key combinations preserved without loss
+- **Key-based analysis**: Focus on storage/parallelism combinations rather than specific values
+
 **Usage**:
 ```python
 from workflow_spm_calculator import calculate_spm_for_workflow, filter_storage_options, convert_operation_to_string
-# Basic usage
-spm_results = calculate_spm_for_workflow(wf_df)
+
+# Basic usage (generates intermediate CSV automatically)
+spm_results = calculate_spm_for_workflow(wf_df, workflow_name="my_workflow")
 
 # With debugging enabled
-spm_results = calculate_spm_for_workflow(wf_df, debug=True)
+spm_results = calculate_spm_for_workflow(wf_df, debug=True, workflow_name="my_workflow")
 
 filtered_results = filter_storage_options(spm_results, "ddmd_4n_l")
 
