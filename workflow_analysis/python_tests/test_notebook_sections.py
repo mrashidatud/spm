@@ -77,7 +77,7 @@ def test_notebook_sections():
     
     # Step 5: Calculate SPM values
     print("Step 5: Calculating SPM values...")
-    spm_results = calculate_spm_for_workflow(wf_df)
+    spm_results = calculate_spm_for_workflow(wf_df, workflow_name=WORKFLOW_NAME)
     print(f"✓ SPM calculation completed: {len(spm_results)} producer-consumer pairs")
     for pair in spm_results.keys():
         print(f"  - {pair}")

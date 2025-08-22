@@ -47,7 +47,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 1: Load workflow data
     print("\n1. Loading workflow data...")
-    wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name, csv_filename=csv_filename)
+    wf_df, task_order_dict, all_wf_dict = load_workflow_data(workflow_name, csv_filename=csv_filename, debug=False)
 
 
     # Get configuration for the workflow
@@ -228,6 +228,20 @@ def analyze_multiple_workflows(workflow_names: list = None,
     return all_results
 
 
+def print_available_workflows():
+    """Print all available workflow names from the configuration."""
+    print("Available workflows:")
+    print("=" * 40)
+    for workflow_name in sorted(TEST_CONFIGS.keys()):
+        config = TEST_CONFIGS[workflow_name]
+        print(f"  {workflow_name}")
+        print(f"    - Nodes: {config['NUM_NODES_LIST']}")
+        print(f"    - Parallelism: {config['ALLOWED_PARALLELISM']}")
+        print(f"    - Data path: {config['exp_data_path']}")
+        print()
+    print(f"Default workflow: {DEFAULT_WF}")
+
+
 def main():
     """Main function to run the workflow analysis."""
     import argparse
@@ -244,8 +258,15 @@ def main():
                        help='Analyze all available workflows')
     parser.add_argument('--no-save', action='store_true',
                        help='Do not save results to files')
+    parser.add_argument('--list-workflows', '-l', action='store_true',
+                       help='List all available workflows and exit')
     
     args = parser.parse_args()
+    
+    if args.list_workflows:
+        # Print available workflows and exit
+        print_available_workflows()
+        return
     
     if args.all:
         # Analyze all workflows

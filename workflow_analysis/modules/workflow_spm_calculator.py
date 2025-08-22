@@ -436,6 +436,8 @@ def handle_stage_in_none_producers(prod_task_name, producer_group, consumer_df, 
                     'cons_aggregateFilesizeMB': consumer_row['aggregateFilesizeMB'],
                     'prod_max_parallelism': producer_row['parallelism'],
                     'cons_max_parallelism': consumer_row['parallelism'],
+                    'prod_stage_order': producer_row['stageOrder'],
+                    'cons_stage_order': consumer_row['stageOrder'],
                     'prod_task_name': prod_task_name,
                     'cons_task_name': consumer_row['taskName'],
                     'file_name': prod_fileName,
@@ -447,7 +449,7 @@ def handle_stage_in_none_producers(prod_task_name, producer_group, consumer_df, 
     
     return edge_count, processed_pairs
 
-def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
+def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False, workflow_name=None):
     """
     Add edges between producer and consumer nodes, including cp/scp nodes and handling fileName as a list for those.
     """
@@ -477,7 +479,8 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                 'aggregateFilesizeMB': node_data.get('aggregateFilesizeMB'),
                 'parallelism': node_data.get('parallelism'),
                 'operation': op_str,
-                'node_data': node_data
+                'node_data': node_data,
+                'stageOrder': node_data.get('stageOrder')
             })
     producer_df = pd.DataFrame(producer_data)
     if debug:
@@ -504,7 +507,8 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                 'aggregateFilesizeMB': node_data.get('aggregateFilesizeMB'),
                 'parallelism': node_data.get('parallelism'),
                 'operation': op_str,
-                'node_data': node_data
+                'node_data': node_data,
+                'stageOrder': node_data.get('stageOrder')
             })
     consumer_df = pd.DataFrame(consumer_data)
     if debug:
@@ -761,6 +765,8 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                             'cons_aggregateFilesizeMB': consumer_row['aggregateFilesizeMB'],
                             'prod_max_parallelism': producer_row['parallelism'],
                             'cons_max_parallelism': consumer_row['parallelism'],
+                            'prod_stage_order': producer_row['stageOrder'],
+                            'cons_stage_order': consumer_row['stageOrder'],
                             'prod_task_name': prod_task_name,
                             'cons_task_name': consumer_row['taskName'],
                             'file_name': prod_fileName,
@@ -986,6 +992,8 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
                         'cons_aggregateFilesizeMB': consumer_row['aggregateFilesizeMB'],
                         'prod_max_parallelism': producer_row['parallelism'],
                         'cons_max_parallelism': consumer_row['parallelism'],
+                        'prod_stage_order': producer_row['stageOrder'],
+                        'cons_stage_order': consumer_row['stageOrder'],
                         'prod_task_name': prod_task_name,
                         'cons_task_name': consumer_row['taskName'],
                         'file_name': prod_fileName,
@@ -999,6 +1007,93 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False):
         print(f"Processed {processed_pairs} pairs, created {edge_count} edge attributes, total edges: {len(WFG.edges)}")
         end_time = time.time()
         print(f"Processing time: {end_time - start_time:.2f} seconds")
+    
+    # Save intermediate results as CSV before exiting
+    if workflow_name:
+        try:
+            import os
+            # Create the output directory if it doesn't exist
+            output_dir = "workflow_spm_results"
+            os.makedirs(output_dir, exist_ok=True)
+            
+            # Convert the graph edges to a DataFrame for CSV export
+            edge_data = []
+            for edge in WFG.edges(data=True):
+                producer_node, consumer_node, attributes = edge
+                
+                # Extract node information
+                prod_node_data = WFG.nodes[producer_node]
+                cons_node_data = WFG.nodes[consumer_node]
+                
+                
+                # Create base row with common information
+                base_row = {
+                    'producer_node': producer_node,
+                    'consumer_node': consumer_node,
+                    'producer_task': prod_node_data.get('taskName', ''),
+                    'consumer_task': cons_node_data.get('taskName', ''),
+                    'producer_stage_order': attributes.get('prod_stage_order', ''),
+                    'consumer_stage_order': attributes.get('cons_stage_order', ''),
+                    'producer_operation': convert_operation_to_string(prod_node_data.get('operation')),
+                    'consumer_operation': convert_operation_to_string(cons_node_data.get('operation')),
+                    'producer_storage': prod_node_data.get('storageType', ''),
+                    'consumer_storage': cons_node_data.get('storageType', ''),
+                    'producer_parallelism': prod_node_data.get('parallelism', ''),
+                    'consumer_parallelism': cons_node_data.get('parallelism', ''),
+                    'producer_filesize_mb': prod_node_data.get('aggregateFilesizeMB', ''),
+                    'consumer_filesize_mb': cons_node_data.get('aggregateFilesizeMB', ''),
+                    'file_name': attributes.get('file_name', ''),
+                }
+                
+                # Add main edge attributes (non-estT values)
+                for key, value in attributes.items():
+                    if key not in ['producer_node', 'consumer_node', 'producer_task', 'consumer_task']:
+                        if not key.startswith('estT_prod_') and not key.startswith('estT_cons_'):
+                            base_row[f'edge_{key}'] = value
+                
+                # Create separate rows for each estT key combination
+                prod_estT_keys = []
+                cons_estT_keys = []
+                
+                for key in attributes.keys():
+                    if key.startswith('estT_prod_'):
+                        prod_estT_keys.append(key)
+                    elif key.startswith('estT_cons_'):
+                        cons_estT_keys.append(key)
+                
+                # If we have estT keys, create separate rows for each combination
+                if prod_estT_keys and cons_estT_keys:
+                    for prod_key in prod_estT_keys:
+                        for cons_key in cons_estT_keys:
+                            row = base_row.copy()
+                            row['estT_prod_key'] = prod_key
+                            row['estT_cons_key'] = cons_key
+                            edge_data.append(row)
+                else:
+                    # If no estT keys, just add the base row
+                    edge_data.append(base_row)
+            
+            # Create DataFrame and save to CSV
+            if edge_data:
+                edge_df = pd.DataFrame(edge_data)
+                csv_filename = f"{workflow_name}_intermediate_estT_results.csv"
+                csv_path = os.path.join(output_dir, csv_filename)
+                edge_df.to_csv(csv_path, index=False)
+                if debug:
+                    print(f"   Saved intermediate estT results to: {csv_path}")
+                    print(f"   Total rows saved: {len(edge_df)}")
+                    print(f"   CSV columns: {list(edge_df.columns)}")
+                    print(f"   Main columns: {[col for col in edge_df.columns if not col.startswith('edge_') and not col.startswith('estT_')]}")
+                    print(f"   Edge columns: {[col for col in edge_df.columns if col.startswith('edge_')]}")
+                    print(f"   estT columns: {[col for col in edge_df.columns if col.startswith('estT_')]}")
+                    print(f"   Structure: One row per estT key combination (keys only, no values)")
+            else:
+                if debug:
+                    print("   No edges found to save in intermediate results")
+                    
+        except Exception as e:
+            if debug:
+                print(f"   Warning: Could not save intermediate results: {e}")
     
     return WFG
 
@@ -1561,7 +1656,7 @@ def extract_SPM_estT_values(WFG):
 
     return SPM_estT_values
 
-def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict:
+def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False, workflow_name: str = None) -> dict:
     """
     Calculate SPM values for the entire workflow, matching the robust logic of the original notebook.
     Now also accounts for cp and scp operation rows as producers and consumers in the workflow graph.
@@ -1572,6 +1667,7 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
     Parameters:
     - wf_df: DataFrame containing workflow task data
     - debug: Boolean to control debug output (default: False)
+    - workflow_name: Name of the workflow for logging intermediate results (default: None)
     
     Returns:
     - dict: SPM values for all producer-consumer pairs, including virtual pairs for initial tasks
@@ -1696,7 +1792,7 @@ def calculate_spm_for_workflow(wf_df: pd.DataFrame, debug: bool = False) -> dict
                 combined_cons_nodes[task_name].extend(node_list)
         
         # Process all edges in a single call
-        add_producer_consumer_edge(WFG, combined_prod_nodes, combined_cons_nodes, debug=debug)
+        add_producer_consumer_edge(WFG, combined_prod_nodes, combined_cons_nodes, debug=debug, workflow_name=workflow_name)
 
     all_SPM_estT_values = extract_SPM_estT_values(WFG)
     if NORMALIZE:

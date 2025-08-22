@@ -21,7 +21,7 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
     
     Returns:
     - DataFrame: Producer-consumer results with columns:
-      producer, consumer, producerStorageType, producerTasksPerNode, 
+      producer, producerStageOrder, consumer, consumerStageOrder, producerStorageType, producerTasksPerNode, 
       consumerStorageType, consumerTasksPerNode, SPM
     """
     
@@ -38,6 +38,22 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
                 consumer = pair.split(':', 1)[1]
             else:
                 continue
+        
+        # Extract stageOrder for producer and consumer
+        producer_stage_order = None
+        consumer_stage_order = None
+        
+        # Get producer stageOrder
+        if producer != 'input':
+            # Look for producer in workflow DataFrame
+            producer_data = wf_df[wf_df['taskName'] == producer]
+            if not producer_data.empty:
+                producer_stage_order = producer_data['stageOrder'].iloc[0]
+        
+        # Get consumer stageOrder
+        consumer_data = wf_df[wf_df['taskName'] == consumer]
+        if not consumer_data.empty:
+            consumer_stage_order = consumer_data['stageOrder'].iloc[0]
         
         # Extract SPM data
         if 'SPM' in data:
@@ -76,7 +92,9 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
                             
                             results_data.append({
                                 'producer': producer,
+                                'producerStageOrder': producer_stage_order,
                                 'consumer': consumer,
+                                'consumerStageOrder': consumer_stage_order,
                                 'producerStorageType': producer_storage_type,
                                 'producerTasksPerNode': producer_tasks_per_node,
                                 'consumerStorageType': consumer_storage_type,
@@ -87,9 +105,9 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
     # Create DataFrame
     results_df = pd.DataFrame(results_data)
     
-    # Sort by producer, then consumer, then SPM value
+    # Sort by producer stageOrder, then consumer stageOrder, then SPM value
     if not results_df.empty:
-        results_df = results_df.sort_values(['producer', 'consumer', 'SPM'])
+        results_df = results_df.sort_values(['producerStageOrder', 'consumerStageOrder', 'SPM'])
     
     return results_df
 
@@ -188,24 +206,25 @@ def create_detailed_producer_consumer_report(spm_results: Dict[str, Dict[str, An
         f.write(f"Summary:\n")
         f.write(f"- Total producer-consumer pairs: {len(results_df)}\n")
         if not results_df.empty:
-            f.write(f"- Producer stages: {sorted(results_df['producerStage'].unique())}\n")
-            f.write(f"- Consumer stages: {sorted(results_df['consumerStage'].unique())}\n")
-            f.write(f"- Storage types used: {sorted(results_df['p-c-Storage'].unique())}\n")
-            f.write(f"- Average SPM value: {results_df['p-c-SPM'].mean():.4f}\n")
-            f.write(f"- Best SPM value: {results_df['p-c-SPM'].min():.4f}\n")
-            f.write(f"- Worst SPM value: {results_df['p-c-SPM'].max():.4f}\n\n")
+            f.write(f"- Producer stages: {sorted(results_df['producerStageOrder'].unique())}\n")
+            f.write(f"- Consumer stages: {sorted(results_df['consumerStageOrder'].unique())}\n")
+            f.write(f"- Storage types used: {sorted(results_df['producerStorageType'].unique())}\n")
+            f.write(f"- Average SPM value: {results_df['SPM'].mean():.4f}\n")
+            f.write(f"- Best SPM value: {results_df['SPM'].min():.4f}\n")
+            f.write(f"- Worst SPM value: {results_df['SPM'].max():.4f}\n\n")
         
         f.write("Detailed Results:\n")
         f.write("-" * 60 + "\n")
         
         if not results_df.empty:
             for _, row in results_df.iterrows():
-                f.write(f"Producer: {row['producer']} (Stage {row['producerStage']})\n")
-                f.write(f"Consumer: {row['consumer']} (Stage {row['consumerStage']})\n")
-                f.write(f"Producer Parallelism: {row['prodParallelism']}\n")
-                f.write(f"Consumer Parallelism: {row['consParallelism']}\n")
-                f.write(f"Storage: {row['p-c-Storage']}\n")
-                f.write(f"SPM Value: {row['p-c-SPM']:.4f}\n")
+                f.write(f"Producer: {row['producer']} (Stage {row['producerStageOrder']})\n")
+                f.write(f"Consumer: {row['consumer']} (Stage {row['consumerStageOrder']})\n")
+                f.write(f"Producer Parallelism: {row['producerTasksPerNode']}\n")
+                f.write(f"Consumer Parallelism: {row['consumerTasksPerNode']}\n")
+                f.write(f"Producer Storage: {row['producerStorageType']}\n")
+                f.write(f"Consumer Storage: {row['consumerStorageType']}\n")
+                f.write(f"SPM Value: {row['SPM']:.4f}\n")
                 f.write("-" * 30 + "\n")
         else:
             f.write("No producer-consumer pairs found.\n")
@@ -230,22 +249,28 @@ def analyze_storage_distribution(results_df: pd.DataFrame) -> Dict[str, Any]:
     
     analysis = {}
     
-    # Storage type distribution
-    storage_counts = results_df['p-c-Storage'].value_counts()
+    # Storage type distribution (combine producer and consumer storage types)
+    all_storage_types = pd.concat([results_df['producerStorageType'], results_df['consumerStorageType']])
+    storage_counts = all_storage_types.value_counts()
     analysis['storage_distribution'] = storage_counts.to_dict()
     
-    # SPM statistics by storage type
-    spm_by_storage = results_df.groupby('p-c-Storage')['p-c-SPM'].agg(['mean', 'min', 'max', 'std']).to_dict('index')
-    analysis['spm_by_storage'] = spm_by_storage
+    # SPM statistics by producer storage type
+    spm_by_prod_storage = results_df.groupby('producerStorageType')['SPM'].agg(['mean', 'min', 'max', 'std']).to_dict('index')
+    analysis['spm_by_producer_storage'] = spm_by_prod_storage
+    
+    # SPM statistics by consumer storage type
+    spm_by_cons_storage = results_df.groupby('consumerStorageType')['SPM'].agg(['mean', 'min', 'max', 'std']).to_dict('index')
+    analysis['spm_by_consumer_storage'] = spm_by_cons_storage
     
     # Stage analysis
     stage_analysis = {}
-    for stage in sorted(results_df['producerStage'].unique()):
-        stage_data = results_df[results_df['producerStage'] == stage]
+    for stage in sorted(results_df['producerStageOrder'].unique()):
+        stage_data = results_df[results_df['producerStageOrder'] == stage]
         stage_analysis[f'stage_{stage}'] = {
             'count': len(stage_data),
-            'avg_spm': stage_data['p-c-SPM'].mean(),
-            'storage_types': stage_data['p-c-Storage'].unique().tolist()
+            'avg_spm': stage_data['SPM'].mean(),
+            'producer_storage_types': stage_data['producerStorageType'].unique().tolist(),
+            'consumer_storage_types': stage_data['consumerStorageType'].unique().tolist()
         }
     analysis['stage_analysis'] = stage_analysis
     

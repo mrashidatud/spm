@@ -10,27 +10,51 @@ This project provides tools and analysis capabilities for understanding and opti
 
 ## 🚀 Quick Start
 
-### Option 1: Using the Command-Line Interface (Recommended)
+### Option 1: Using the Split Architecture (Recommended)
+The workflow analysis is now split into two phases for better modularity and reusability:
+
+**Phase 1: Data Loading**
 ```bash
 cd workflow_analysis
 
-# Analyze a specific workflow
-python3 workflow_analysis_main.py --workflow ddmd_4n_l
+# Load workflow data from JSON files and save to CSV
+python3 workflow_data_loader.py --workflow ddmd_4n_l
 
-# Analyze all available workflows
-python3 workflow_analysis_main.py --all
-
-# With custom CSV filename
-python3 workflow_analysis_main.py --workflow template_workflow --csv-filename my_workflow.csv
+# With custom output directory and filename
+python3 workflow_data_loader.py --workflow ddmd_4n_l --output-dir ./my_data --csv-filename my_workflow.csv
 ```
 
-### Option 2: Using the Jupyter Notebook (For Debugging)
+**Phase 2: Analysis**
+```bash
+# Analyze workflow from CSV file (workflow name auto-extracted from filename)
+python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv
+
+# Specify workflow name explicitly
+python3 workflow_analyzer.py analysis_data/workflow_data.csv --workflow ddmd_4n_l
+
+# Use different IOR data path
+python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --ior-data path/to/ior_data.csv
+
+# Don't save results to files
+python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --no-save
+```
+
+### Option 2: Complete Workflow (Both Phases)
+```bash
+# Step 1: Load data
+python3 workflow_data_loader.py --workflow ddmd_4n_l
+
+# Step 2: Analyze the loaded data
+python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv
+```
+
+### Option 3: Using the Jupyter Notebook (For Debugging)
 ```bash
 cd workflow_analysis
 jupyter notebook workflow_analysis.ipynb
 ```
 
-### Option 3: Using Individual Modules
+### Option 4: Using Individual Modules
 ```python
 from workflow_analysis.modules import (
     load_workflow_data,
@@ -48,14 +72,69 @@ wf_df = estimate_transfer_rates_for_workflow(wf_df, ior_data, storage_list)
 spm_results = calculate_spm_for_workflow(wf_df)
 ```
 
+## 🐍 Environment Setup
+
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package installer)
+
+### Installation Steps
+
+1. **Clone the repository and navigate to the project directory:**
+   ```bash
+   cd /path/to/spm
+   ```
+
+2. **Create a Python virtual environment:**
+   ```bash
+   python3 -m venv spm_env
+   ```
+
+3. **Activate the virtual environment:**
+   ```bash
+   source spm_env/bin/activate  # On Linux/macOS
+   # or
+   spm_env\Scripts\activate     # On Windows
+   ```
+
+4. **Install required packages:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Verify installation:**
+   ```bash
+   cd workflow_analysis
+   python3 workflow_data_loader.py --help
+   python3 workflow_analyzer.py --help
+   ```
+
+### Required Packages
+The following packages are automatically installed via `requirements.txt`:
+- **pandas** - Data manipulation and analysis
+- **numpy** - Numerical computations
+- **matplotlib** - Plotting and visualization
+- **seaborn** - Statistical visualizations
+- **networkx** - Graph construction and analysis
+- **scipy** - Scientific computing and interpolation
+
+### Deactivating the Environment
+When you're done working with the project:
+```bash
+deactivate
+```
+
 ## 📁 Project Structure
 
 ```
 spm/
 ├── workflow_analysis/                 # Main analysis system
-│   ├── workflow_analysis_main.py     # Command-line interface
+│   ├── workflow_data_loader.py       # Phase 1: Data loading from JSON to CSV
+│   ├── workflow_analyzer.py          # Phase 2: Analysis from CSV
 │   ├── workflow_analysis.ipynb       # Analysis notebook
 │   ├── modules/                      # Core modules
+│   ├── analysis_data/                # Generated data files
+│   ├── workflow_spm_results/         # Analysis results
 │   ├── template_workflow/            # Template for testing
 │   └── python_tests/                 # Test suite
 └── perf_profiles/                    # Benchmark data
@@ -100,12 +179,15 @@ The system now supports storage type transitions using cp/scp operations:
 - Producer-consumer analysis for workflow stage transitions
 - Storage configuration ranking by performance
 - Stage-aware processing for stage_in and stage_out operations
+- **Intermediate Results**: Detailed per-task time estimation (without SPM values) stored in CSV format
 
 ### 🏗️ Modular Architecture
-- Separation of concerns with dedicated modules
-- Reusable components across different workflows
-- Easy extension for new workflows or storage types
-- Comprehensive test suite
+- **Split Architecture**: Data loading and analysis phases separated for better modularity
+- **Input File Preservation**: Original CSV files are never modified, enabling multiple analysis runs
+- **Reusable Components**: CSV files can be analyzed multiple times without reloading JSON data
+- **Separation of Concerns**: Dedicated modules for different analysis phases
+- **Easy Extension**: New workflows or storage types can be easily added
+- **Comprehensive Test Suite**: Thorough testing of all components
 
 ## 📊 Workflow Data Structure
 
@@ -153,8 +235,13 @@ The interpolation function automatically maps workflow integers to IOR strings i
 ## 📊 Output Files
 
 ### Data Files
-- **`{workflow_name}_workflow_data.csv`** - Processed workflow data with estimated transfer rates
-- **`{workflow_name}_spm_results.json`** - SPM calculation results and best configurations
+- **`analysis_data/{workflow_name}_original_workflow_data.csv`** - Original data before modifications
+- **`analysis_data/{workflow_name}_processed_workflow_data.csv`** - Modified data with staging rows and transfer rates
+- **`analysis_data/{workflow_name}_spm_results.json`** - SPM calculation results and best configurations
+
+### Analysis Results
+- **`workflow_spm_results/{workflow_name}_filtered_spm_results.csv`** - Filtered SPM results with storage analysis
+- **`workflow_spm_results/{workflow_name}_intermediate_estT_results.csv`** - Intermediate DAG edges with per-task time estimation (without SPM values)
 
 ### Reports
 - **`{workflow_name}_spm.txt`** - Top-ranked storage configurations
@@ -166,9 +253,42 @@ The interpolation function automatically maps workflow integers to IOR strings i
 - ✅ **SPM Calculation**: Complete and tested
 - ✅ **Transfer Rate Estimation**: Complete and tested
 - ✅ **Storage Type Transitions**: Complete and tested (CP/SCP operations)
+- ✅ **Split Architecture**: Complete and tested (Data loading + Analysis phases)
+- ✅ **Input File Preservation**: Complete and tested (Original files never modified)
+- ✅ **Intermediate Results**: Complete and tested (Per-task time estimation CSV)
 - 🚧 **Visualization**: Under construction
 - ✅ **Template Generation**: Complete and tested
 - ✅ **Command-Line Interface**: Complete and tested
+
+## 🏗️ Split Architecture Benefits
+
+The workflow analysis system has been redesigned with a split architecture for better modularity and reusability:
+
+### **Phase 1: Data Loading (`workflow_data_loader.py`)**
+- **Purpose**: Loads JSON files and processes them into CSV format
+- **Input**: JSON datalife trace files from workflow execution
+- **Output**: Clean CSV file ready for analysis
+- **Benefits**: 
+  - Separates data loading from analysis
+  - CSV files can be manually inspected and modified
+  - Data loading only needs to be done once per workflow
+
+### **Phase 2: Analysis (`workflow_analyzer.py`)**
+- **Purpose**: Performs complete workflow analysis on CSV data
+- **Input**: CSV file from Phase 1
+- **Output**: SPM results, filtered configurations, and intermediate analysis
+- **Benefits**:
+  - Original CSV file is never modified (creates working copy)
+  - Can be run multiple times on the same input
+  - Supports different analysis parameters without reloading data
+  - Generates intermediate results for detailed inspection
+
+### **Key Advantages**
+- **Reproducibility**: Multiple analysis runs with identical results
+- **Flexibility**: Modify CSV data between analysis runs
+- **Debugging**: Easier to isolate issues in data loading vs. analysis
+- **Performance**: Avoid reloading JSON files for repeated analysis
+- **Data Integrity**: Original input files are preserved
 
 ## 📚 Documentation
 

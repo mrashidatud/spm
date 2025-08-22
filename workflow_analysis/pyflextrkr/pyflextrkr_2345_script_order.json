@@ -1,0 +1,65 @@
+{
+    "tracksingle": {
+        "stage_order": 0,
+        "parallelism": 240,
+        "num_tasks": 240,
+        "predecessors": {
+            "initial_data": {
+                "inputs": [
+                    "cloudid_\\d{8}_\\d{6}\\.nc"
+                    
+                ]
+            }
+        },
+        "outputs": [
+            "track_\\d{8}_\\d{6}\\.nc"
+        ]
+    },
+    "gettracks": {
+        "stage_order": 1,
+        "parallelism": 240,
+        "num_tasks": 240,
+        "predecessors": {
+            "initial_data": {
+                "inputs": [
+                    "cloudid_\\d{8}_\\d{6}\\.nc",
+                    "track_\\d{8}_\\d{6}\\.nc"
+                ]
+            }
+        },
+        "outputs": [
+            "tracknumbers_\\d{8}\\.\\d{4}_\\d{8}\\.\\d{4}\\.nc"
+        ]
+    },
+    "trackstats": {
+        "stage_order": 2,
+        "parallelism": 1,
+        "num_tasks": 1,
+        "predecessors": {
+            "gettracks": {
+                "inputs": [
+                    "tracknumbers_\\d{8}\\.\\d{4}_\\d{8}\\.\\d{4}\\.nc"
+                ]
+            }
+        },
+        "outputs": [
+            "trackstats_\\d{8}\\.\\d{4}_\\d{8}\\.\\d{4}\\.nc",
+            "trackstats_sparse_\\d{8}\\.\\d{4}_\\d{8}\\.\\d{4}\\.nc"
+        ]
+    },
+    "identifymcs": {
+        "stage_order": 3,
+        "parallelism": 1,
+        "num_tasks": 1,
+        "predecessors": {
+            "trackstats": {
+                "inputs": [
+                    "trackstats_sparse_\\d{8}\\.\\d{4}_\\d{8}\\.\\d{4}\\.nc"
+                        ]
+            }
+        },
+        "outputs": [
+            "mcs_tracks_\\d{8}\\.\\d{4}_\\d{8}\\.\\d{4}\\.nc"
+        ]
+    }
+}
