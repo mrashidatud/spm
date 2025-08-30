@@ -1008,92 +1008,193 @@ def add_producer_consumer_edge(WFG, prod_nodes, cons_nodes, debug=False, workflo
         end_time = time.time()
         print(f"Processing time: {end_time - start_time:.2f} seconds")
     
-    # Save intermediate results as CSV before exiting
+    # Save WFG as JSON
     if workflow_name:
         try:
             import os
+            import json
             # Create the output directory if it doesn't exist
             output_dir = "workflow_spm_results"
             os.makedirs(output_dir, exist_ok=True)
             
-            # Convert the graph edges to a DataFrame for CSV export
-            edge_data = []
+            # Convert NetworkX graph to JSON-serializable format
+            wfg_data = {
+                'nodes': {},
+                'edges': []
+            }
+            
+            # Convert nodes to JSON-serializable format
+            for node_name, node_data in WFG.nodes(data=True):
+                # Convert numpy types to native Python types
+                serializable_node_data = {}
+                for key, value in node_data.items():
+                    if isinstance(value, (np.integer, np.floating)):
+                        serializable_node_data[key] = float(value) if isinstance(value, np.floating) else int(value)
+                    elif isinstance(value, np.ndarray):
+                        serializable_node_data[key] = value.tolist()
+                    elif value is None:
+                        serializable_node_data[key] = None
+                    elif isinstance(value, (int, float, str, bool, list, dict)):
+                        serializable_node_data[key] = value
+                    else:
+                        serializable_node_data[key] = str(value)  # Convert other types to string
+                
+                wfg_data['nodes'][node_name] = serializable_node_data
+            
+            # Convert edges to JSON-serializable format
             for edge in WFG.edges(data=True):
-                producer_node, consumer_node, attributes = edge
+                producer_node, consumer_node, edge_data = edge
                 
-                # Extract node information
-                prod_node_data = WFG.nodes[producer_node]
-                cons_node_data = WFG.nodes[consumer_node]
+                # Convert edge attributes to JSON-serializable format
+                serializable_edge_data = {}
+                for key, value in edge_data.items():
+                    if isinstance(value, (np.integer, np.floating)):
+                        serializable_edge_data[key] = float(value) if isinstance(value, np.floating) else int(value)
+                    elif isinstance(value, np.ndarray):
+                        serializable_edge_data[key] = value.tolist()
+                    elif value is None:
+                        serializable_edge_data[key] = None
+                    elif isinstance(value, (int, float, str, bool, list, dict)):
+                        serializable_edge_data[key] = value
+                    else:
+                        serializable_edge_data[key] = str(value)  # Convert other types to string
                 
-                
-                # Create base row with common information
-                base_row = {
+                wfg_data['edges'].append({
                     'producer_node': producer_node,
                     'consumer_node': consumer_node,
-                    'producer_task': prod_node_data.get('taskName', ''),
-                    'consumer_task': cons_node_data.get('taskName', ''),
-                    'producer_stage_order': attributes.get('prod_stage_order', ''),
-                    'consumer_stage_order': attributes.get('cons_stage_order', ''),
-                    'producer_operation': convert_operation_to_string(prod_node_data.get('operation')),
-                    'consumer_operation': convert_operation_to_string(cons_node_data.get('operation')),
-                    'producer_storage': prod_node_data.get('storageType', ''),
-                    'consumer_storage': cons_node_data.get('storageType', ''),
-                    'producer_parallelism': prod_node_data.get('parallelism', ''),
-                    'consumer_parallelism': cons_node_data.get('parallelism', ''),
-                    'producer_filesize_mb': prod_node_data.get('aggregateFilesizeMB', ''),
-                    'consumer_filesize_mb': cons_node_data.get('aggregateFilesizeMB', ''),
-                    'file_name': attributes.get('file_name', ''),
-                }
-                
-                # Add main edge attributes (non-estT values)
-                for key, value in attributes.items():
-                    if key not in ['producer_node', 'consumer_node', 'producer_task', 'consumer_task']:
-                        if not key.startswith('estT_prod_') and not key.startswith('estT_cons_'):
-                            base_row[f'edge_{key}'] = value
-                
-                # Create separate rows for each estT key combination
-                prod_estT_keys = []
-                cons_estT_keys = []
-                
-                for key in attributes.keys():
-                    if key.startswith('estT_prod_'):
-                        prod_estT_keys.append(key)
-                    elif key.startswith('estT_cons_'):
-                        cons_estT_keys.append(key)
-                
-                # If we have estT keys, create separate rows for each combination
-                if prod_estT_keys and cons_estT_keys:
-                    for prod_key in prod_estT_keys:
-                        for cons_key in cons_estT_keys:
-                            row = base_row.copy()
-                            row['estT_prod_key'] = prod_key
-                            row['estT_cons_key'] = cons_key
-                            edge_data.append(row)
-                else:
-                    # If no estT keys, just add the base row
-                    edge_data.append(base_row)
+                    'attributes': serializable_edge_data
+                })
             
-            # Create DataFrame and save to CSV
-            if edge_data:
-                edge_df = pd.DataFrame(edge_data)
-                csv_filename = f"{workflow_name}_intermediate_estT_results.csv"
-                csv_path = os.path.join(output_dir, csv_filename)
-                edge_df.to_csv(csv_path, index=False)
-                if debug:
-                    print(f"   Saved intermediate estT results to: {csv_path}")
-                    print(f"   Total rows saved: {len(edge_df)}")
-                    print(f"   CSV columns: {list(edge_df.columns)}")
-                    print(f"   Main columns: {[col for col in edge_df.columns if not col.startswith('edge_') and not col.startswith('estT_')]}")
-                    print(f"   Edge columns: {[col for col in edge_df.columns if col.startswith('edge_')]}")
-                    print(f"   estT columns: {[col for col in edge_df.columns if col.startswith('estT_')]}")
-                    print(f"   Structure: One row per estT key combination (keys only, no values)")
-            else:
-                if debug:
-                    print("   No edges found to save in intermediate results")
-                    
+            # Save WFG as JSON
+            json_filename = f"{workflow_name}_WFG.json"
+            json_path = os.path.join(output_dir, json_filename)
+            with open(json_path, 'w') as f:
+                json.dump(wfg_data, f, indent=4, default=str)
+            
+            if debug:
+                print(f"   Saved WFG to: {json_path}")
+                print(f"   Total nodes: {len(wfg_data['nodes'])}")
+                print(f"   Total edges: {len(wfg_data['edges'])}")
         except Exception as e:
             if debug:
-                print(f"   Warning: Could not save intermediate results: {e}")
+                print(f"   Warning: Could not save WFG: {e}")
+                import traceback
+                traceback.print_exc()
+    
+    # # Save intermediate results as CSV before exiting
+    # if workflow_name:
+    #     try:
+    #         import os
+    #         # Create the output directory if it doesn't exist
+    #         output_dir = "workflow_spm_results"
+    #         os.makedirs(output_dir, exist_ok=True)
+            
+    #         # Convert the graph edges to a DataFrame for CSV export
+    #         edge_data = []
+            
+    #         for edge in WFG.edges(data=True):
+    #             producer_node, consumer_node, attributes = edge
+                
+    #             # Extract node information
+    #             prod_node_data = WFG.nodes[producer_node]
+    #             cons_node_data = WFG.nodes[consumer_node]
+                
+    #             # Create base row with common information
+    #             base_row = {
+    #                 'producer_node': producer_node,
+    #                 'consumer_node': consumer_node,
+    #                 'producer_task': prod_node_data.get('taskName', ''),
+    #                 'consumer_task': cons_node_data.get('taskName', ''),
+    #                 'producer_stage_order': attributes.get('prod_stage_order', ''),
+    #                 'consumer_stage_order': attributes.get('cons_stage_order', ''),
+    #                 'producer_operation': convert_operation_to_string(prod_node_data.get('operation')),
+    #                 'consumer_operation': convert_operation_to_string(cons_node_data.get('operation')),
+    #                 'producer_storage': prod_node_data.get('storageType', ''),
+    #                 'consumer_storage': cons_node_data.get('storageType', ''),
+    #                 'producer_parallelism': prod_node_data.get('parallelism', ''),
+    #                 'consumer_parallelism': cons_node_data.get('parallelism', ''),
+    #                 'producer_filesize_mb': prod_node_data.get('aggregateFilesizeMB', ''),
+    #                 'consumer_filesize_mb': cons_node_data.get('aggregateFilesizeMB', ''),
+    #                 'file_name': attributes.get('file_name', ''),
+    #             }
+                
+    #             # Add main edge attributes (non-estT values)
+    #             for key, value in attributes.items():
+    #                 if key not in ['producer_node', 'consumer_node', 'producer_task', 'consumer_task']:
+    #                     if not key.startswith('estT_prod_') and not key.startswith('estT_cons_'):
+    #                         base_row[f'edge_{key}'] = value
+                
+    #             # Create separate rows for each unique estT_prod and estT_cons combination
+    #             prod_estT_attributes = {}
+    #             cons_estT_attributes = {}
+                
+    #             # Collect estT_prod and estT_cons attributes with their values
+    #             for key, value in attributes.items():
+    #                 if key.startswith('estT_prod_'):
+    #                     prod_estT_attributes[key] = value
+    #                 elif key.startswith('estT_cons_'):
+    #                     cons_estT_attributes[key] = value
+                
+    #             # Create rows for each unique combination
+    #             if prod_estT_attributes and cons_estT_attributes:
+    #                 # Create a row for each unique estT_prod and estT_cons combination
+    #                 for prod_key, prod_value in prod_estT_attributes.items():
+    #                     for cons_key, cons_value in cons_estT_attributes.items():
+    #                         row = base_row.copy()
+    #                         row['estT_prod_key'] = prod_key
+    #                         row['estT_prod_value'] = prod_value
+    #                         row['estT_cons_key'] = cons_key
+    #                         row['estT_cons_value'] = cons_value
+    #                         edge_data.append(row)
+    #             elif prod_estT_attributes:
+    #                 # Only producer estT values
+    #                 for prod_key, prod_value in prod_estT_attributes.items():
+    #                     row = base_row.copy()
+    #                     row['estT_prod_key'] = prod_key
+    #                     row['estT_prod_value'] = prod_value
+    #                     row['estT_cons_key'] = ''
+    #                     row['estT_cons_value'] = ''
+    #                     edge_data.append(row)
+    #             elif cons_estT_attributes:
+    #                 # Only consumer estT values
+    #                 for cons_key, cons_value in cons_estT_attributes.items():
+    #                     row = base_row.copy()
+    #                     row['estT_cons_key'] = cons_key
+    #                     row['estT_cons_value'] = cons_value
+    #                     row['estT_prod_key'] = ''
+    #                     row['estT_prod_value'] = ''
+    #                     edge_data.append(row)
+    #             else:
+    #                 # No estT values, just add the base row
+    #                 row = base_row.copy()
+    #                 row['estT_prod_key'] = ''
+    #                 row['estT_prod_value'] = ''
+    #                 row['estT_cons_key'] = ''
+    #                 row['estT_cons_value'] = ''
+    #                 edge_data.append(row)
+            
+    #         # Create DataFrame and save to CSV
+    #         if edge_data:
+    #             edge_df = pd.DataFrame(edge_data)
+                
+    #             csv_filename = f"{workflow_name}_intermediate_estT_results.csv"
+    #             csv_path = os.path.join(output_dir, csv_filename)
+    #             edge_df.to_csv(csv_path, index=False)
+    #             if debug:
+    #                 print(f"   Saved intermediate estT results to: {csv_path}")
+    #                 print(f"   Total rows saved: {len(edge_df)}")
+    #                 print(f"   CSV columns: {list(edge_df.columns)}")
+    #                 print(f"   Main columns: {[col for col in edge_df.columns if not col.startswith('edge_') and not col.startswith('estT_')]}")
+    #                 print(f"   Edge columns: {[col for col in edge_df.columns if col.startswith('edge_')]}")
+    #                 print(f"   estT columns: {[col for col in edge_df.columns if col.startswith('estT_')]}")
+    #                 print(f"   Structure: One row per unique estT_prod/estT_cons combination with actual calculated values")
+    #         else:
+    #             if debug:
+    #                 print("   No edges found to save in intermediate results")
+                    
+    #     except Exception as e:
+    #         if debug:
+    #             print(f"   Warning: Could not save intermediate results: {e}")
     
     return WFG
 
