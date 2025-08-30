@@ -1,0 +1,158 @@
+Producer: stage_in-run_idfeature, Consumer: run_idfeature
+- Rank 1: ssd_15_24p with Averaged rank = 23.632895500237755
+- Rank 2: ssd_9_24p with Averaged rank = 23.632895500237755
+- Rank 3: tmpfs_15_24p with Averaged rank = 34.0709769810848
+- Rank 4: tmpfs_9_24p with Averaged rank = 34.0709769810848
+
+Producer: run_idfeature, Consumer: stage_out-run_idfeature
+- Rank 1: beegfs-ssd_24_9p with Averaged rank = 8.029643827869105
+- Rank 2: beegfs-tmpfs_24_9p with Averaged rank = 11.843497910416882
+- Rank 3: beegfs-ssd_24_12p with Averaged rank = 12.276588018063302
+- Rank 4: beegfs-tmpfs_24_12p with Averaged rank = 18.16083848863355
+- Rank 5: beegfs-ssd_24_15p with Averaged rank = 22.533900661953712
+- Rank 6: beegfs-tmpfs_24_15p with Averaged rank = 33.33929540045268
+- Rank 7: tmpfs-tmpfs_24_9p with Averaged rank = 411.7710337332355
+- Rank 8: ssd-ssd_24_9p with Averaged rank = 412.18869241802884
+- Rank 9: tmpfs-tmpfs_24_12p with Averaged rank = 622.6978957187251
+- Rank 10: ssd-ssd_24_12p with Averaged rank = 624.6147023014915
+- Rank 11: tmpfs-tmpfs_24_15p with Averaged rank = 1099.4220780481837
+- Rank 12: ssd-ssd_24_15p with Averaged rank = 1104.7295191695168
+
+Producer: run_idfeature, Consumer: run_tracksingle
+- Rank 1: tmpfs_24_24p with Averaged rank = 57.18333169484702
+- Rank 2: beegfs_24_24p with Averaged rank = 762.133211280968
+- Rank 3: ssd_24_24p with Averaged rank = 1313.9676179177593
+
+Producer: run_idfeature, Consumer: run_mapfeature
+- Rank 1: tmpfs_24_24p with Averaged rank = 111.46421011044512
+- Rank 2: beegfs_24_24p with Averaged rank = 1078.4916192320977
+- Rank 3: ssd_24_24p with Averaged rank = 1360.5311589693242
+
+Producer: stage_in-run_tracksingle, Consumer: run_tracksingle
+- Rank 1: tmpfs_15_24p with Averaged rank = 24.830927440280373
+- Rank 2: tmpfs_6_24p with Averaged rank = 24.830927440280373
+- Rank 3: ssd_15_24p with Averaged rank = 26.095802068951734
+- Rank 4: ssd_6_24p with Averaged rank = 26.095802068951734
+
+Producer: run_tracksingle, Consumer: stage_out-run_tracksingle
+- Rank 1: beegfs-ssd_24_12p with Averaged rank = 0.07194767842427056
+- Rank 2: beegfs-tmpfs_24_12p with Averaged rank = 0.10736964397061734
+- Rank 3: beegfs-ssd_24_6p with Averaged rank = 0.48298178878546705
+- Rank 4: beegfs-tmpfs_24_6p with Averaged rank = 0.6403932767487196
+- Rank 5: beegfs-ssd_24_15p with Averaged rank = 1.188550160714568
+- Rank 6: beegfs-tmpfs_24_15p with Averaged rank = 1.7786381582669093
+- Rank 7: tmpfs-tmpfs_24_12p with Averaged rank = 3.9832167329466053
+- Rank 8: ssd-ssd_24_12p with Averaged rank = 3.999709482430935
+- Rank 9: tmpfs-tmpfs_24_6p with Averaged rank = 23.661613361081326
+- Rank 10: ssd-ssd_24_6p with Averaged rank = 23.675941512774134
+- Rank 11: tmpfs-tmpfs_24_15p with Averaged rank = 65.06216349297247
+- Rank 12: ssd-ssd_24_15p with Averaged rank = 65.46646204590358
+
+Producer: stage_in-run_trackstats, Consumer: run_trackstats
+- Rank 1: tmpfs_1_24p with Averaged rank = 0.4823625666492568
+- Rank 2: ssd_1_24p with Averaged rank = 18.166935778575965
+
+Producer: run_trackstats, Consumer: stage_out-run_trackstats
+- Rank 1: beegfs-tmpfs_24_1p with Averaged rank = 0.01527065697825621
+- Rank 2: beegfs-ssd_24_1p with Averaged rank = 0.015602948323876365
+- Rank 3: tmpfs-tmpfs_24_1p with Averaged rank = 0.21240675662462452
+- Rank 4: ssd-ssd_24_1p with Averaged rank = 0.21406532997888847
+
+Producer: run_trackstats, Consumer: run_identifymcs
+- Rank 1: tmpfs_24_1p with Averaged rank = 0.9050998911432757
+- Rank 2: beegfs_24_1p with Averaged rank = 6.245374749256069
+- Rank 3: ssd_24_1p with Averaged rank = 18.653600413155573
+
+Producer: stage_in-run_identifymcs, Consumer: run_identifymcs
+- Rank 1: tmpfs_1_1p with Averaged rank = 0.42273732449401896
+- Rank 2: ssd_1_1p with Averaged rank = 0.48666463457960674
+
+Producer: run_identifymcs, Consumer: stage_out-run_identifymcs
+- Rank 1: beegfs-tmpfs_1_1p with Averaged rank = 0.004417300059589367
+- Rank 2: beegfs-ssd_1_1p with Averaged rank = 0.004513413010112553
+- Rank 3: tmpfs-tmpfs_1_1p with Averaged rank = 0.06146068993889764
+- Rank 4: ssd-ssd_1_1p with Averaged rank = 0.0619408524261767
+
+Producer: run_identifymcs, Consumer: run_matchpf
+- Rank 1: tmpfs_1_1p with Averaged rank = 78.2940455895581
+- Rank 2: ssd_1_1p with Averaged rank = 191.24815346440403
+- Rank 3: beegfs_1_1p with Averaged rank = 197.88052639481361
+
+Producer: stage_in-run_matchpf, Consumer: run_matchpf
+- Rank 1: tmpfs_1_1p with Averaged rank = 28.428122849693075
+- Rank 2: ssd_1_1p with Averaged rank = 103.49682346916659
+
+Producer: run_matchpf, Consumer: stage_out-run_matchpf
+- Rank 1: beegfs-tmpfs_1_1p with Averaged rank = 0.005037062368963436
+- Rank 2: beegfs-ssd_1_1p with Averaged rank = 0.005146661355854133
+- Rank 3: tmpfs-tmpfs_1_1p with Averaged rank = 0.07008140734072144
+- Rank 4: ssd-ssd_1_1p with Averaged rank = 0.07062888654330568
+
+Producer: run_matchpf, Consumer: run_robustmcs
+- Rank 1: tmpfs_1_1p with Averaged rank = 52.44042361851117
+- Rank 2: ssd_1_1p with Averaged rank = 128.1936203928514
+- Rank 3: beegfs_1_1p with Averaged rank = 135.88537327984702
+
+Producer: stage_in-run_robustmcs, Consumer: run_robustmcs
+- Rank 1: tmpfs_1_1p with Averaged rank = 40.04183827835721
+- Rank 2: ssd_1_1p with Averaged rank = 144.53370006396352
+
+Producer: run_robustmcs, Consumer: stage_out-run_robustmcs
+- Rank 1: beegfs-tmpfs_1_1p with Averaged rank = 0.005937872491145046
+- Rank 2: beegfs-ssd_1_1p with Averaged rank = 0.006067074095621444
+- Rank 3: tmpfs-tmpfs_1_1p with Averaged rank = 0.08260918441850928
+- Rank 4: ssd-ssd_1_1p with Averaged rank = 0.08325445928363902
+
+Producer: run_robustmcs, Consumer: run_speed
+- Rank 1: tmpfs_1_24p with Averaged rank = 112.09225330253199
+- Rank 2: ssd_1_24p with Averaged rank = 220.25923170772674
+- Rank 3: beegfs_1_24p with Averaged rank = 463.1001559387078
+
+Producer: stage_in-run_mapfeature, Consumer: run_mapfeature
+- Rank 1: tmpfs_15_24p with Averaged rank = 87.48943383597631
+- Rank 2: tmpfs_10_24p with Averaged rank = 87.48943383597631
+- Rank 3: ssd_15_24p with Averaged rank = 1192.3331881491245
+- Rank 4: ssd_10_24p with Averaged rank = 1192.3331881491245
+
+Producer: run_mapfeature, Consumer: stage_out-run_mapfeature
+- Rank 1: beegfs-ssd_24_10p with Averaged rank = 8.518912467982448
+- Rank 2: beegfs-ssd_24_12p with Averaged rank = 11.758455338721625
+- Rank 3: beegfs-tmpfs_24_10p with Averaged rank = 12.586590513008753
+- Rank 4: beegfs-ssd_24_15p with Averaged rank = 13.87178337393237
+- Rank 5: beegfs-tmpfs_24_12p with Averaged rank = 17.397694599572848
+- Rank 6: beegfs-tmpfs_24_15p with Averaged rank = 20.620460146440337
+- Rank 7: tmpfs-tmpfs_24_10p with Averaged rank = 438.31571973900554
+- Rank 8: ssd-ssd_24_10p with Averaged rank = 439.09698817138417
+- Rank 9: tmpfs-tmpfs_24_12p with Averaged rank = 597.5165089980004
+- Rank 10: ssd-ssd_24_12p with Averaged rank = 599.3685798778271
+- Rank 11: tmpfs-tmpfs_24_15p with Averaged rank = 708.7802756912181
+- Rank 12: ssd-ssd_24_15p with Averaged rank = 712.582631849235
+
+Producer: run_mapfeature, Consumer: run_speed
+- Rank 1: tmpfs_24_24p with Averaged rank = 182.8108483765084
+- Rank 2: beegfs_24_24p with Averaged rank = 2239.4779771925864
+- Rank 3: ssd_24_24p with Averaged rank = 5994.095827974374
+
+Producer: stage_in-run_speed, Consumer: run_speed
+- Rank 1: ssd_15_24p with Averaged rank = 9.682346614034378
+- Rank 2: ssd_9_24p with Averaged rank = 9.682346614034378
+- Rank 3: tmpfs_15_24p with Averaged rank = 13.988657252788338
+- Rank 4: tmpfs_9_24p with Averaged rank = 13.988657252788338
+
+Producer: run_speed, Consumer: stage_out-run_speed
+- Rank 1: beegfs-tmpfs_24_1p with Averaged rank = 0.0018719330988151122
+- Rank 2: beegfs-ssd_24_1p with Averaged rank = 0.001912662207940519
+- Rank 3: tmpfs-tmpfs_24_1p with Averaged rank = 0.026047626546206258
+- Rank 4: ssd-ssd_24_1p with Averaged rank = 0.02625115417961203
+- Rank 5: beegfs-ssd_24_9p with Averaged rank = 5.003179859770331
+- Rank 6: beegfs-tmpfs_24_9p with Averaged rank = 7.400576221548835
+- Rank 7: tmpfs-beegfs_24_9p with Averaged rank = 9.238309855991234
+- Rank 8: beegfs-ssd_24_15p with Averaged rank = 13.60025654994177
+- Rank 9: ssd-beegfs_24_9p with Averaged rank = 19.69054869648568
+- Rank 10: beegfs-tmpfs_24_15p with Averaged rank = 20.221380231895704
+- Rank 11: tmpfs-beegfs_24_15p with Averaged rank = 26.02261796982885
+- Rank 12: ssd-beegfs_24_15p with Averaged rank = 53.21991511024995
+- Rank 13: tmpfs-tmpfs_24_9p with Averaged rank = 263.6059644517543
+- Rank 14: ssd-ssd_24_9p with Averaged rank = 263.9566618647476
+- Rank 15: tmpfs-tmpfs_24_15p with Averaged rank = 696.4358692705351
+- Rank 16: ssd-ssd_24_15p with Averaged rank = 700.1897589280437

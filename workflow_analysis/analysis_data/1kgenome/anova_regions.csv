@@ -1,0 +1,4 @@
+individuals_store,size,mean,std,nodes,individuals_merge_store,sifting_store,mutation_overlap_store,frequency_store
+beegfs,243,18856.98759643983,9747.033706227032,*,*,*,*,*
+tmpfs,243,587912.4367986404,5295.458616206498,*,*,*,*,*
+ssd,243,852561.7793808343,5295.458616206498,*,*,*,*,*

@@ -1,5 +1,5 @@
 # Ignore specific folder content but keep folder structure
-workflow_analysis/1kgenome/par_6000_10n_nfs_ps300/*
+#workflow_analysis/1kgenome/par_6000_10n_nfs_ps300/*
 perf_profiles/cp_data/*
 perf_profiles/ior_data/*
 
@@ -66,8 +66,8 @@ ehthumbs.db
 Thumbs.db
 
 # Analysis outputs
-workflow_analysis/analysis_data/
-workflow_analysis/workflow_spm_results/
+#workflow_analysis/analysis_data/
+#workflow_analysis/workflow_spm_results/
 
 # Temporary files
 *.tmp

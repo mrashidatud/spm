@@ -105,7 +105,7 @@ def run_workflow_analysis(workflow_name: str = DEFAULT_WF,
     
     # Step 6: Calculate SPM values
     print("\n6. Calculating SPM values...")
-    spm_results = calculate_spm_for_workflow(wf_df, debug=False)
+    spm_results = calculate_spm_for_workflow(wf_df, debug=False, workflow_name=workflow_name)
     print(f"   Calculated SPM for {len(spm_results)} producer-consumer pairs")
     
     # Add ranking step to match notebook

@@ -90,6 +90,21 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
                         if spm_values and len(spm_values) > 0:
                             spm_value = spm_values[0]  # Take the first (and only) value
                             
+                            # Build keys to fetch averaged times saved by calculate_averages_and_rank
+                            prod_key = f"{producer_storage_type}_{producer_tasks_per_node}p"
+                            cons_key = f"{consumer_storage_type}_{consumer_tasks_per_node}p"
+
+                            avg_estT_prod = None
+                            avg_estT_cons = None
+                            try:
+                                avg_estT_prod_list = data.get('estT_prod', {}).get(prod_key, [])
+                                avg_estT_cons_list = data.get('estT_cons', {}).get(cons_key, [])
+                                avg_estT_prod = float(avg_estT_prod_list[0]) if avg_estT_prod_list else None
+                                avg_estT_cons = float(avg_estT_cons_list[0]) if avg_estT_cons_list else None
+                            except Exception:
+                                # Keep None if anything is missing or malformed
+                                pass
+
                             results_data.append({
                                 'producer': producer,
                                 'producerStageOrder': producer_stage_order,
@@ -99,7 +114,9 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
                                 'producerTasksPerNode': producer_tasks_per_node,
                                 'consumerStorageType': consumer_storage_type,
                                 'consumerTasksPerNode': consumer_tasks_per_node,
-                                'SPM': spm_value
+                                'SPM': spm_value,
+                                'producerSPM': avg_estT_prod,
+                                'consumerSPM': avg_estT_cons
                             })
     
     # Create DataFrame

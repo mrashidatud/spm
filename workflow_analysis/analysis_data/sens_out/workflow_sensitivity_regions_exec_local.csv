@@ -1,0 +1,9 @@
+region,size,mean,std,cv,individuals_stor,individuals_merge_stor,sifting_stor,frequency_stor,mutation_overlap_stor,nodes
+5,8,0.0725780301873262,0.0322423265283854,0.4442436153911443,"ssd,tmpfs","ssd,tmpfs",beegfs,*,beegfs,"5,10"
+14,21,0.0,0.0,,beegfs,*,beegfs,beegfs,*,"2,5,10"
+2,8,0.1989141995306261,0.1130379879014362,0.5682751063934586,"ssd,tmpfs","ssd,tmpfs",beegfs,*,*,2
+4,8,0.04367216677887632,0.003003017572939601,0.06876273366844081,"ssd,tmpfs","ssd,tmpfs",beegfs,*,"ssd,tmpfs","5,10"
+12,6,0.0005224656168178594,3.921159864947286e-05,0.0750510605622163,beegfs,*,beegfs,"ssd,tmpfs","ssd,tmpfs",10
+13,12,0.0,0.0,,beegfs,*,beegfs,"ssd,tmpfs",beegfs,"2,5,10"
+11,6,0.00060644067020877,8.13220834340395e-05,0.1340973444377403,beegfs,*,beegfs,"ssd,tmpfs","ssd,tmpfs",5
+9,6,0.00020315027115555748,6.73236976049888e-05,0.33139851215574934,beegfs,*,beegfs,"ssd,tmpfs","ssd,tmpfs",2
