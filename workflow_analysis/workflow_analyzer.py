@@ -18,8 +18,8 @@ from modules.workflow_interpolation import (
     estimate_transfer_rates_for_workflow, calculate_aggregate_filesize_per_node
 )
 from modules.workflow_spm_calculator import (
-    calculate_spm_for_workflow, filter_storage_options,
-    display_top_sorted_averaged_rank, select_best_storage_and_parallelism,
+    calculate_spm_for_edges, calculate_spm_from_wfg, filter_storage_options,
+    select_best_storage_and_parallelism, display_top_sorted_averaged_rank,
     calculate_averages_and_rank
 )
 from modules.workflow_visualization import plot_all_visualizations
@@ -70,6 +70,11 @@ def analyze_workflow_from_csv(csv_file_path: str,
     print(f"   Loaded {len(wf_df_original)} workflow records from CSV")
     print(f"   Columns: {list(wf_df_original.columns)}")
     
+    # Debug: Check storageType values right after CSV loading
+    print(f"   DEBUG: storageType values after CSV loading: {sorted(wf_df_original['storageType'].unique())}")
+    print(f"   DEBUG: storageType data type after CSV loading: {wf_df_original['storageType'].dtype}")
+    print(f"   DEBUG: Sample storageType values after CSV loading: {wf_df_original['storageType'].head(10).tolist()}")
+    
     # Create a copy to ensure we don't modify the original data
     wf_df = wf_df_original.copy()
     print(f"   Created working copy of the data (original CSV file will remain unchanged)")
@@ -113,8 +118,13 @@ def analyze_workflow_from_csv(csv_file_path: str,
     
     # Step 3: Insert data staging rows
     print("\n3. Inserting data staging rows...")
-    wf_df = insert_data_staging_rows(wf_df)
+    wf_df = insert_data_staging_rows(wf_df, debug=False)
     print(f"   Added staging rows, total records: {len(wf_df)}")
+    
+    # Debug: Check storageType values after staging
+    print(f"   DEBUG: storageType values after staging: {sorted(wf_df['storageType'].unique())}")
+    print(f"   DEBUG: storageType data type after staging: {wf_df['storageType'].dtype}")
+    print(f"   DEBUG: Sample storageType values after staging: {wf_df['storageType'].head(10).tolist()}")
     
     # Step 3.1: Calculate aggregate file size per node (AFTER staging rows are inserted)
     print("\n3.1. Calculating aggregate file size per node...")
@@ -153,13 +163,16 @@ def analyze_workflow_from_csv(csv_file_path: str,
     else:
         print("\n5. Skipping transfer rate estimation (no IOR data)")
     
-    # Step 6: Calculate SPM values
-    print("\n6. Calculating SPM values...")
-    spm_results = calculate_spm_for_workflow(wf_df, debug=False, workflow_name=workflow_name)
-    print(f"   Calculated SPM for {len(spm_results)} producer-consumer pairs")
+    # Step 6: Build workflow graph and add edges
+    print("\n6. Building workflow graph and adding edges...")
+    wfg_graph = calculate_spm_for_edges(wf_df, debug=False, workflow_name=workflow_name)
+    print(f"   Built workflow graph and added edges")
     
-    # Add ranking step to match notebook
-    spm_results = calculate_averages_and_rank(spm_results, debug=False)
+    # Step 6.5: Calculate SPM values from the built graph
+    print("\n6.5. Calculating SPM values from workflow graph...")
+    # Note: This step has its own debug option separate from graph building
+    spm_results = calculate_spm_from_wfg(wfg_graph, debug=False)  # Set to False by default, can be controlled separately
+    print(f"   Calculated SPM for {len(spm_results)} producer-consumer pairs")
     
     # Debug: Check SPM results structure
     if spm_results:

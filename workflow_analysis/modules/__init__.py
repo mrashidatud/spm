@@ -24,7 +24,7 @@ from .workflow_interpolation import (
 
 from .workflow_spm_calculator import (
     add_workflow_graph_nodes, add_producer_consumer_edge,
-    calculate_spm_for_workflow, filter_storage_options,
+    calculate_spm_for_edges, filter_storage_options,
     select_best_storage_and_parallelism, normalize_estT_values,
     display_top_sorted_averaged_rank
 )
@@ -82,7 +82,7 @@ __all__ = [
     
     # SPM calculations
     'add_workflow_graph_nodes', 'add_producer_consumer_edge',
-    'calculate_spm_for_workflow', 'filter_storage_options',
+    'calculate_spm_for_edges', 'filter_storage_options',
     'select_best_storage_and_parallelism', 'normalize_estT_values',
     'display_top_sorted_averaged_rank',
     

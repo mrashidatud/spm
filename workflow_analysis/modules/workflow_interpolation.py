@@ -461,10 +461,8 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
                 try:
                     # Map storage types to the actual values in IOR data storageType column
                     storage_filter = f'{storage}'
-                    if storage == 'pfs':
+                    if storage == 'pfs': # FIXME: temporary fix for pfs storage type
                         storage_filter = 'beegfs'
-                    elif storage == '5':
-                        storage_filter = 'beegfs'  # Map storage type 5 to beegfs
 
                     df_ior_storage = df_ior_sorted[df_ior_sorted['storageType'] == storage_filter]
 
@@ -473,22 +471,9 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
                             print(f"No data found for storage type: {storage_filter}")
                         continue
 
-                    # Map operations to string operations for IOR data lookup
-                    if operation == 'read' or operation == '1':
-                        op_code = 'read'  # Read operation
-                    elif operation == 'write' or operation == '0':
-                        op_code = 'write'  # Write operation
-                    elif operation == 'cp':
-                        op_code = 'cp'  # Copy operation
-                    elif operation == 'scp':
-                        op_code = 'scp'  # Secure copy operation
-                    else:
-                        # For any other operations, use as-is
-                        op_code = operation
-
                     estimated_trMiB_storage, ts_slope = calculate_4d_interpolation_with_extrapolation(
                         df_ior_storage,
-                        op_code,
+                        operation,
                         aggregateFilesizeMB,
                         numNodes,
                         parallelism,
@@ -499,8 +484,6 @@ def estimate_transfer_rates_for_workflow(wf_pfs_df, df_ior_sorted, storage_list,
                         debug and (task_name == 'individuals')  # Only debug for the problematic task
                     )
                     
-                    if debug and task_name in ['openmm', 'aggregate', 'training', 'inference']:
-                        print(f"[DEBUG] {task_name} ({operation}): storage={storage}, parallelism={parallelism}, result={estimated_trMiB_storage}")
 
                 except ValueError as e:
                     if debug:
