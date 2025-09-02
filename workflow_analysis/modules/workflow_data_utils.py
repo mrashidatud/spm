@@ -125,7 +125,7 @@ def add_stat_to_df(trial_folder: str, monitor_timer_stat_io: List,
         'operation': int(operation),
         'totalTime': monitor_timer_stat_io[0],
         'trMiB': bytes_to_mb(monitor_timer_stat_io[2] / monitor_timer_stat_io[0]),
-        'storageType': store_code,
+        'storageType': decode_store_code(store_code),  # Convert back to string storage type
         'opCount': monitor_timer_stat_io[1],
         'taskPID': task_pid,
         'fileName': fileName,
