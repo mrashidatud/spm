@@ -15,6 +15,8 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
     """
     Extract producer-consumer storage selection and parallelism results from SPM results.
     
+    This function now handles the new edge key format: "beegfs-ssd_15_ssd_150"
+    
     Parameters:
     - spm_results: Dictionary containing SPM calculation results
     - wf_df: Workflow DataFrame with task information
@@ -60,64 +62,57 @@ def extract_producer_consumer_results(spm_results: Dict[str, Dict[str, Any]],
             spm_data = data['SPM']
             
             for storage_key, spm_values in spm_data.items():
-                # Parse storage key format: {prod_storage}_{num1}_{consumer_storage}_{num2}p
-                # Example: "beegfs_2_ssd_30p" -> prod_storage="beegfs", num1="2", cons_storage="ssd", num2="30"
+                # Parse storage key format: {prod_storage}_{n_prod}_{cons_storage}_{n_cons}
+                # Example: "beegfs-ssd_15_ssd_150" -> prod_storage="beegfs-ssd", n_prod="15", cons_storage="ssd", n_cons="150"
                 
                 # Split by underscore
                 parts = storage_key.split('_')
                 
                 if len(parts) >= 4:
                     # Handle compound storage types (e.g., "beegfs-ssd")
-                    # Find where the consumer storage starts
-                    # Look for the pattern: {prod_storage}_{num1}_{cons_storage}_{num2}p
+                    # The format is: {prod_storage}_{n_prod}_{cons_storage}_{n_cons}
+                    
+                    # Find where the consumer storage starts by looking for the pattern
+                    # We need to handle cases where prod_storage might contain hyphens (e.g., "beegfs-ssd")
                     
                     # Start from the end and work backwards
-                    # The last part should end with 'p' and contain the consumer parallelism
-                    last_part = parts[-1]
-                    if last_part.endswith('p'):
-                        consumer_tasks_per_node = last_part[:-1]  # Remove 'p'
-                        
-                        # The second-to-last part is the consumer storage type
-                        consumer_storage_type = parts[-2]
-                        
-                        # The third-to-last part is the producer tasks per node
-                        producer_tasks_per_node = parts[-3]
-                        
-                        # Everything before that is the producer storage type
-                        producer_storage_type = '_'.join(parts[:-3])
-                        
-                        # Get the SPM value (should be a list with one value after averaging)
-                        if spm_values and len(spm_values) > 0:
-                            spm_value = spm_values[0]  # Take the first (and only) value
-                            
-                            # Build keys to fetch averaged times saved by calculate_averages_and_rank
-                            prod_key = f"{producer_storage_type}_{producer_tasks_per_node}p"
-                            cons_key = f"{consumer_storage_type}_{consumer_tasks_per_node}p"
+                    # The last part should be the consumer parallelism (n_cons)
+                    n_cons = parts[-1]
+                    
+                    # The second-to-last part is the consumer storage type
+                    cons_storage = parts[-2]
+                    
+                    # The third-to-last part is the producer parallelism (n_prod)
+                    n_prod = parts[-3]
+                    
+                    # Everything before that is the producer storage type (may contain hyphens)
+                    prod_storage = '_'.join(parts[:-3])
+                    
+                    # Get the SPM value (should be a list with one value after averaging)
+                    if spm_values and len(spm_values) > 0:
+                        spm_value = spm_values[0]  # Take the first (and only) value
 
-                            avg_estT_prod = None
-                            avg_estT_cons = None
-                            try:
-                                avg_estT_prod_list = data.get('estT_prod', {}).get(prod_key, [])
-                                avg_estT_cons_list = data.get('estT_cons', {}).get(cons_key, [])
-                                avg_estT_prod = float(avg_estT_prod_list[0]) if avg_estT_prod_list else None
-                                avg_estT_cons = float(avg_estT_cons_list[0]) if avg_estT_cons_list else None
-                            except Exception:
-                                # Keep None if anything is missing or malformed
-                                pass
-
-                            results_data.append({
-                                'producer': producer,
-                                'producerStageOrder': producer_stage_order,
-                                'consumer': consumer,
-                                'consumerStageOrder': consumer_stage_order,
-                                'producerStorageType': producer_storage_type,
-                                'producerTasksPerNode': producer_tasks_per_node,
-                                'consumerStorageType': consumer_storage_type,
-                                'consumerTasksPerNode': consumer_tasks_per_node,
-                                'SPM': spm_value,
-                                'producerSPM': avg_estT_prod,
-                                'consumerSPM': avg_estT_cons
-                            })
+                        # get the estT_prod and estT_cons values using the full edge_key
+                        estT_prod_values = data['estT_prod'].get(storage_key, [])
+                        estT_cons_values = data['estT_cons'].get(storage_key, [])
+                        
+                        # Extract the first value and convert numpy types to regular Python types
+                        estT_prod_value = float(estT_prod_values[0]) if estT_prod_values else 0.0
+                        estT_cons_value = float(estT_cons_values[0]) if estT_cons_values else 0.0
+                        
+                        results_data.append({
+                            'producer': producer,
+                            'producerStageOrder': producer_stage_order,
+                            'consumer': consumer,
+                            'consumerStageOrder': consumer_stage_order,
+                            'producerStorageType': prod_storage,
+                            'producerTasksPerNode': n_prod,
+                            'consumerStorageType': cons_storage,
+                            'consumerTasksPerNode': n_cons,
+                            'SPM': spm_value,
+                            'estT_prod': estT_prod_value,
+                            'estT_cons': estT_cons_value,
+                        })
     
     # Create DataFrame
     results_df = pd.DataFrame(results_data)

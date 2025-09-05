@@ -86,7 +86,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
             
             # Add actual data movement rows
             for taskName in actual_task_names:
-                for storageType in ['beegfs-tmpfs', 'beegfs-ssd', 'beegfs']:
+                for storageType in ['beegfs-tmpfs', 'beegfs-ssd', 'beegfs', 'ssd-beegfs', 'tmpfs-beegfs', 'ssd-ssd', 'tmpfs-tmpfs']:
                     for file_names, agg_size, parallelism, group in file_groups:
                         for numNodes in numNodesList:
                             if storageType == 'beegfs':
@@ -235,7 +235,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
                 numNodesList = eval(numNodesList)
             except Exception:
                 numNodesList = [int(numNodesList)]
-        for storageType in ['beegfs-ssd', 'beegfs-tmpfs', 'ssd-ssd', 'tmpfs-tmpfs']:
+        for storageType in ['beegfs-ssd', 'beegfs-tmpfs', 'ssd-ssd', 'tmpfs-tmpfs', 'ssd-beegfs', 'tmpfs-beegfs']:
             # stage_in
             for file_names, agg_size, parallelism, file_group in file_groups:
                 for numNodes in numNodesList:
@@ -305,7 +305,7 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
                 numNodesList = eval(numNodesList)
             except Exception:
                 numNodesList = [int(numNodesList)]
-        for storageType in ['beegfs-ssd', 'beegfs-tmpfs', 'ssd-ssd', 'tmpfs-tmpfs', 'beegfs']:
+        for storageType in ['beegfs-ssd', 'beegfs-tmpfs', 'ssd-ssd', 'tmpfs-tmpfs', 'beegfs', 'ssd-beegfs', 'tmpfs-beegfs']:
             for file_names, agg_size, parallelism, file_group in file_groups:
                 for numNodes in numNodesList:
                     if storageType == 'beegfs':
@@ -429,4 +429,13 @@ def insert_data_staging_rows(wf_df: pd.DataFrame, debug: bool = False) -> pd.Dat
     combined = combined.sort_values(['stageOrder', 'taskName']).reset_index(drop=True)
     if debug:
         print(f"Total rows after staging: {len(combined)}")
+        
+        # Save the dataframe output when debug=True
+        import os
+        os.makedirs("./analysis_data", exist_ok=True)
+        debug_output_path = f'./analysis_data/debug_staging_output.csv'
+        combined.to_csv(debug_output_path, index=False)
+        print(f"Debug: Saved staging output dataframe to: {debug_output_path}")
+        print(f"Debug: Original rows: {len(wf_df)}, Staging rows added: {len(staging_df)}, Total: {len(combined)}")
+    
     return combined 
