@@ -57,6 +57,34 @@ TEST_CONFIGS = {
         "exp_data_path": "./1kgenome", 
         "test_folders": ['par_6000_10n_nfs_ps300'] 
     },
+    "1kg_par_3000_10n_nfs_ps300": {
+        "SCRIPT_ORDER": "1kg_script_order",
+        "NUM_NODES_LIST": [10],
+        "ALLOWED_PARALLELISM": [1, 2, 5, 30, 60, 150],
+        "exp_data_path": "./1kgenome",
+        "test_folders": ["par_3000_10n_nfs_ps300"],
+    },
+    "1kg_par_6000_10n_nfs_ps300": {
+        "SCRIPT_ORDER": "1kg_script_order",
+        "NUM_NODES_LIST": [10],
+        "ALLOWED_PARALLELISM": [1, 2, 5, 30, 60, 150],
+        "exp_data_path": "./1kgenome",
+        "test_folders": ["par_6000_10n_nfs_ps300"],
+    },
+    "1kg_par_6000_2n_pfs_ps300": {
+        "SCRIPT_ORDER": "1kg_script_order",
+        "NUM_NODES_LIST": [2],
+        "ALLOWED_PARALLELISM": [1, 2, 5, 30, 60, 150],
+        "exp_data_path": "./1kgenome",
+        "test_folders": ["par_6000_2n_pfs_ps300"],
+    },
+    "1kg_par_9000_10n_nfs_ps300": {
+        "SCRIPT_ORDER": "1kg_script_order",
+        "NUM_NODES_LIST": [10],
+        "ALLOWED_PARALLELISM": [1, 2, 5, 30, 60, 150],
+        "exp_data_path": "./1kgenome",
+        "test_folders": ["par_9000_10n_nfs_ps300"],
+    },
     # "1kg_2": {
     #     "SCRIPT_ORDER": "1kg_script_order_short",
     #     "NUM_NODES_LIST": [2, 5, 10],
@@ -64,6 +92,48 @@ TEST_CONFIGS = {
     #     "exp_data_path": "./1kgenome", 
     #     "test_folders": ['par_6000_10n_nfs_ps300'] 
     # },
+    "pyflex_2n_24p_24f": {
+        "SCRIPT_ORDER": "pyflextrkr_s9_script_order_24p",
+        "NUM_NODES_LIST": [2],
+        "ALLOWED_PARALLELISM": [1, 12, 24],
+        "exp_data_path": "./pyflextrkr",
+        "test_folders": ["pyflextrkr2n24p24f"],
+    },
+    "pyflex_8n_24p_24f": {
+        "SCRIPT_ORDER": "pyflextrkr_s9_script_order_24p",
+        "NUM_NODES_LIST": [8],
+        "ALLOWED_PARALLELISM": [1, 12, 24],
+        "exp_data_path": "./pyflextrkr",
+        "test_folders": ["pyflextrkr8n24p24f"],
+    },
+    "pyflex_8n_24p_48f": {
+        "SCRIPT_ORDER": "pyflextrkr_s9_script_order_24p",
+        "NUM_NODES_LIST": [8],
+        "ALLOWED_PARALLELISM": [1, 12, 24],
+        "exp_data_path": "./pyflextrkr",
+        "test_folders": ["pyflextrkr8n24p48f"],
+    },
+    "pyflex_8n_24p_96f": {
+        "SCRIPT_ORDER": "pyflextrkr_s9_script_order_24p",
+        "NUM_NODES_LIST": [8],
+        "ALLOWED_PARALLELISM": [1, 12, 24],
+        "exp_data_path": "./pyflextrkr",
+        "test_folders": ["pyflextrkr8n24p96f"],
+    },
+    "pyflex_8n_48p_96f": {
+        "SCRIPT_ORDER": "pyflextrkr_s9_script_order_48p",
+        "NUM_NODES_LIST": [8],
+        "ALLOWED_PARALLELISM": [1, 12, 24, 48],
+        "exp_data_path": "./pyflextrkr",
+        "test_folders": ["pyflextrkr8n48p96f"],
+    },
+    "pyflex_8n_96p_96f": {
+        "SCRIPT_ORDER": "pyflextrkr_s9_script_order",
+        "NUM_NODES_LIST": [8],
+        "ALLOWED_PARALLELISM": [1, 12, 24, 48, 96],
+        "exp_data_path": "./pyflextrkr",
+        "test_folders": ["pyflextrkr8n96p96f"],
+    },
     "pyflex_240f": {
         "SCRIPT_ORDER": "pyflextrkr_s9p240_script_order",
         "NUM_NODES_LIST": [8, 16, 32],
