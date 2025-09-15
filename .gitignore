@@ -66,8 +66,8 @@ ehthumbs.db
 Thumbs.db
 
 # Analysis outputs
-#workflow_analysis/analysis_data/
-#workflow_analysis/workflow_spm_results/
+workflow_analysis/analysis_data/
+workflow_analysis/workflow_spm_results/
 
 # Temporary files
 *.tmp
