@@ -11,9 +11,8 @@ from constants import SPM_CSV_FILE, META_FILE
 #     producerTasksPerNode, consumerTasksPerNode
 #
 #   New timing columns: separate producer/consumer SPM for each entry.
-#   We accept any of these casings/names (case-insensitive):
-#     - "producer_spm" or "producerSPM" or "producer_spm_value"
-#     - "consumer_spm" or "consumerSPM" or "consumer_spm_value"
+#   Current canonical fields: "estT_prod", "estT_cons" (case-insensitive).
+#   For backward compatibility, we also accept: producer_spm / consumer_spm variations.
 #
 # We normalize to the columns the model expects:
 #   producer, consumer, storage_src, storage_dst, prod_tpn, cons_tpn,
@@ -45,13 +44,13 @@ def _normalize_spm_columns(df: pd.DataFrame) -> pd.DataFrame:
                 return cand
         return None
 
-    prod_spm_col = _find_col(["producer_spm", "producerspm", "producer_spm_value"])
-    cons_spm_col = _find_col(["consumer_spm", "consumerspm", "consumer_spm_value"])
+    # Prefer new names, fall back to legacy variations
+    prod_spm_col = _find_col(["estt_prod", "producer_spm", "producerspm", "producer_spm_value"])
+    cons_spm_col = _find_col(["estt_cons", "consumer_spm", "consumerspm", "consumer_spm_value"])
 
     if prod_spm_col is None or cons_spm_col is None:
         raise ValueError(
-            "CSV must include producer/consumer SPM columns "
-            "(e.g., 'producer_spm' and 'consumer_spm')"
+            "CSV must include producer/consumer SPM columns (e.g., 'estT_prod' and 'estT_cons')"
         )
 
     rename_map[prod_spm_col] = "prod_spm"
@@ -72,11 +71,14 @@ def _normalize_spm_columns(df: pd.DataFrame) -> pd.DataFrame:
             if k in ("prod_tpn", "cons_tpn"):
                 df[k] = pd.NA
             else:
-                raise ValueError(f"CSV is missing required column: {k}")
+                raise ValueError(f"Missing required column: {k}")
 
-    # Enforce numeric types where applicable
-    for k in ("prod_tpn", "cons_tpn", "prod_spm", "cons_spm"):
+    # normalize dtypes
+    for k in ("prod_spm", "cons_spm"):
         df[k] = pd.to_numeric(df[k], errors="coerce")
+    for k in ("prod_tpn", "cons_tpn"):
+        if k in df.columns:
+            df[k] = pd.to_numeric(df[k], errors="coerce")
 
     return df[keep_cols].copy()
 
