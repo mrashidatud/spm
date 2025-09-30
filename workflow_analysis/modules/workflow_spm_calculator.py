@@ -3,7 +3,6 @@ SPM Calculator module for workflow analysis.
 Contains functions for building workflow graphs and calculating SPM values.
 """
 
-from this import d
 import networkx as nx
 import pandas as pd
 import numpy as np
@@ -737,6 +736,109 @@ def normalize_estT_values(SPM_estT_values: Dict[str, Dict[str, Any]], debug=Fals
     return normalized_SPM_estT_values
 
 
+def calculate_max_and_rank(SPM_estT_values, debug=False):
+    """
+    Takes maximum values for estT_prod and estT_cons, calculates SPM as max_estT_prod + max_estT_cons,
+    and calculates rank for each storage_n.
+    
+    This function now handles the new edge key format: "beegfs-ssd_15_ssd_150"
+    
+    Parameters:
+    SPM_estT_values (dict): Dictionary containing 'estT_prod', 'estT_cons', and 'dsize' values.
+    debug (bool): Boolean to control debug output (default: False)
+
+    Returns:
+    dict: Updated dictionary with maximum values, calculated SPM, and calculated ranks.
+    """
+    if debug:
+        print(f"Calculating maximums and ranks for {len(SPM_estT_values)} producer-consumer pairs...")
+        
+    for pair, data in SPM_estT_values.items():
+        if debug:
+            print(f"Processing pair: {pair}")
+            print(f"Available estT_prod keys: {list(data['estT_prod'].keys())}")
+            print(f"Available estT_cons keys: {list(data['estT_cons'].keys())}")
+        
+        # Initialize a dictionary for ranks if not present
+        if 'rank' not in data:
+            data['rank'] = {}
+        
+        # Process each edge_key directly (new format: "beegfs-ssd_15_ssd_150")
+        for edge_key in data['estT_prod'].keys():
+            if debug:
+                print(f"Processing edge_key: {edge_key}")
+            
+            # Parse the edge_key format: "beegfs-ssd_15_ssd_150"
+            parts = edge_key.split('_')
+            if len(parts) >= 4:
+                prod_storage = parts[0]  # "beegfs-ssd"
+                n_prod = parts[1]        # "15"
+                cons_storage = parts[2]  # "ssd"
+                n_cons = parts[3]        # "150"
+                
+                if debug:
+                    print(f"  Parsed: prod_storage={prod_storage}, n_prod={n_prod}, cons_storage={cons_storage}, n_cons={n_cons}")
+            else:
+                if debug:
+                    print(f"  Skipping edge_key with unexpected format: {edge_key}")
+                continue
+            
+            # Get the values for this edge_key
+            estT_prod_values = data['estT_prod'].get(edge_key, [])
+            estT_cons_values = data['estT_cons'].get(edge_key, [])
+            dsize_prod_values = data['dsize_prod'].get(edge_key, [])
+            dsize_cons_values = data['dsize_cons'].get(edge_key, [])
+            par_prod_values = data['par_prod'].get(edge_key, [])
+            par_cons_values = data['par_cons'].get(edge_key, [])
+            
+            if debug:
+                print(f"  estT_prod_values: {estT_prod_values}")
+                print(f"  estT_cons_values: {estT_cons_values}")
+                print(f"  dsize_prod_values: {dsize_prod_values}")
+                print(f"  dsize_cons_values: {dsize_cons_values}")
+            
+            # Calculate maximums
+            max_estT_prod = max(estT_prod_values) if estT_prod_values else 0.0
+            max_estT_cons = max(estT_cons_values) if estT_cons_values else 0.0
+            max_dsize_prod = max(dsize_prod_values) if dsize_prod_values else 0.0
+            max_dsize_cons = max(dsize_cons_values) if dsize_cons_values else 0.0
+            max_par_prod = max(par_prod_values) if par_prod_values else 0.0
+            max_par_cons = max(par_cons_values) if par_cons_values else 0.0
+            
+            # Calculate SPM
+            max_spm = max_estT_prod + max_estT_cons
+            
+            if debug:
+                print(f"  Maximums: estT_prod={max_estT_prod:.4f}, estT_cons={max_estT_cons:.4f}, SPM={max_spm:.4f}")
+                print(f"  Maximums: dsize_prod={max_dsize_prod:.4f}, dsize_cons={max_dsize_cons:.4f}")
+                print(f"  Maximums: par_prod={max_par_prod:.4f}, par_cons={max_par_cons:.4f}")
+            
+            # Calculate rank
+            if MULTI_NODES == False:
+                prod_seq_tasks = max_par_prod / int(n_prod) if int(n_prod) > 0 else 0
+                cons_seq_tasks = max_par_cons / int(n_cons) if int(n_cons) > 0 else 0
+                rank = (prod_seq_tasks * max_dsize_prod * max_estT_prod + cons_seq_tasks * max_dsize_cons * max_estT_cons)
+            else:
+                rank = max_estT_prod + max_estT_cons
+            
+            if debug:
+                print(f"  Calculated rank: {rank:.4f}")
+            
+            # Store maximums back in the dictionary for reference
+            data['estT_prod'][edge_key] = [max_estT_prod]
+            data['estT_cons'][edge_key] = [max_estT_cons]
+            data['SPM'][edge_key] = [max_spm]
+            data['dsize_prod'][edge_key] = [max_dsize_prod]
+            data['dsize_cons'][edge_key] = [max_dsize_cons]
+            data['par_prod'][edge_key] = [max_par_prod]
+            data['par_cons'][edge_key] = [max_par_cons]
+            data['rank'][edge_key] = [rank]
+
+    if debug:
+        print(f"Completed maximum and ranking calculations.")
+    return SPM_estT_values
+
+
 def calculate_averages_and_rank(SPM_estT_values, debug=False):
     """
     Averages list values for estT_prod and estT_cons, calculates SPM as ave_estT_prod + ave_estT_cons,
@@ -1200,8 +1302,8 @@ def calculate_spm_from_wfg(WFG, debug=False):
         all_SPM_estT_values = normalize_estT_values_g(all_SPM_estT_values)
     
     if debug:
-        print("Calculating averages and ranks...")
-    all_SPM_estT_values = calculate_averages_and_rank(all_SPM_estT_values, debug=debug)
+        print("Calculating maximums and ranks...")
+    all_SPM_estT_values = calculate_max_and_rank(all_SPM_estT_values, debug=debug)
     
     if debug:
         print(f"✓ Completed SPM calculation for {len(all_SPM_estT_values)} pairs")
