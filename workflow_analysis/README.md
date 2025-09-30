@@ -8,48 +8,30 @@ The workflow analysis system processes datalife statistics from scientific workf
 
 ## 🚀 Quick Start
 
-### Option 1: Using the Split Architecture (Recommended)
-The workflow analysis is now split into two phases for better modularity and reusability:
+The analysis runs in two phases for modularity:
 
-**Phase 1: Data Loading**
+1) Phase 1 — Data Loading
 ```bash
 cd workflow_analysis
-
-# Load workflow data from JSON files and save to CSV
-python3 workflow_data_loader.py --workflow ddmd_4n_l
-
-# With custom output directory and filename
-python3 workflow_data_loader.py --workflow ddmd_4n_l --output-dir ./my_data --csv-filename my_workflow.csv
+python3 workflow_data_loader.py --workflow ddmd_4n_l \
+  --output-dir ./analysis_data \
+  --csv-filename ddmd_4n_l_workflow_data.csv
 ```
 
-**Phase 2: Analysis**
+2) Phase 2 — Analysis
 ```bash
-# Analyze workflow from CSV file (workflow name auto-extracted from filename)
+python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv \
+  --ior-data ../perf_profiles/updated_master_ior_df.csv
+```
+
+Optional
+```bash
+# Run both steps end-to-end (explicitly)
+python3 workflow_data_loader.py --workflow ddmd_4n_l
 python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv
 
-# Specify workflow name explicitly
-python3 workflow_analyzer.py analysis_data/workflow_data.csv --workflow ddmd_4n_l
-
-# Use different IOR data path
-python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --ior-data path/to/ior_data.csv
-
-# Don't save results to files
-python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --no-save
-```
-
-### Option 2: Complete Workflow (Both Phases)
-```bash
-# Step 1: Load data
-python3 workflow_data_loader.py --workflow ddmd_4n_l
-
-# Step 2: Analyze the loaded data
-python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv
-```
-
-### Option 3: Using the Jupyter Notebook (For Debugging)
-```bash
-cd workflow_analysis
-jupyter notebook workflow_analysis.ipynb
+# Use the notebook for debugging/exploration
+cd workflow_analysis && jupyter notebook workflow_analysis.ipynb
 ```
 
 ### Option 4: Using Individual Modules
@@ -287,13 +269,6 @@ This file contains the complete workflow graph structure in JSON format, includi
 - Parse node and edge data for statistical analysis and reporting
 
 ### Example Analysis Queries
-
-For detailed code examples on how to analyze the intermediate results, see:
-
-- **JSON Data Loading**: [`workflow_spm_calculator.py:1010-1067`](modules/workflow_spm_calculator.py#L1010-L1067) - JSON serialization logic
-- **Edge Analysis**: [`workflow_spm_calculator.py:1010-1067`](modules/workflow_spm_calculator.py#L1010-L1067) - Edge attribute extraction
-- **Node Analysis**: [`workflow_spm_calculator.py:1010-1067`](modules/workflow_spm_calculator.py#L1010-L1067) - Node data structure
-
 Basic usage pattern:
 ```python
 import json
@@ -312,69 +287,60 @@ edges = wfg_data['edges']
 
 ### Using `workflow_data_loader.py`
 
-The `workflow_data_loader.py` script loads workflow data from JSON files and converts it to CSV format for analysis.
+Loads workflow data from JSON sources and converts it to a normalized CSV for analysis.
 
-**Main Function**: [`workflow_data_loader.py:82`](workflow_data_loader.py#L82) - Command-line interface
+Inputs
+- `--workflow, -w` (required): Name of the workflow to load (must be configured in `modules/workflow_config.py`).
 
-#### Basic Usage
+Optional Inputs
+- `--output-dir, -o`: Directory to write the CSV. Default: `./analysis_data`.
+- `--csv-filename, -f`: CSV filename. Default: `{workflow_name}_workflow_data.csv`.
+
+Output
+- A single CSV at `{output-dir}/{csv-filename}` containing the flattened workflow tasks, operations, file sizes, and metadata used by the analyzer.
+
+Examples
 ```bash
-# Load workflow data from JSON files and save to CSV
 python3 workflow_data_loader.py --workflow ddmd_4n_l
-
-# With custom output directory and filename
 python3 workflow_data_loader.py --workflow ddmd_4n_l --output-dir ./my_data --csv-filename my_workflow.csv
 ```
 
-#### Command Line Arguments
-| Argument | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `--workflow, -w` | Workflow name to load | - | Yes |
-| `--output-dir, -o` | Output directory for CSV files | `./analysis_data` | No |
-| `--csv-filename, -f` | Custom CSV filename | `{workflow_name}_workflow_data.csv` | No |
-| `--help, -h` | Show help message | - | No |
-
 ### Using `workflow_analyzer.py`
 
-The `workflow_analyzer.py` script performs complete workflow analysis on CSV data, including transfer rate estimation, SPM calculations, and storage optimization.
+Runs the end-to-end analysis on the CSV, including transfer-rate estimation, SPM calculation, and best configuration selection.
 
-**Main Function**: [`workflow_analyzer.py:29`](workflow_analyzer.py#L29) - Complete analysis pipeline
+Inputs
+- `csv_file` (required): Path to the CSV produced by `workflow_data_loader.py`.
 
-#### Basic Usage
+Optional Inputs
+- `--workflow, -w`: Workflow name (if not inferable from the CSV filename).
+- `--ior-data, -i`: IOR benchmark CSV. Default: `../perf_profiles/updated_master_ior_df.csv`.
+- `--no-save`: If set, results are not written to disk.
+
+Outputs (when `--no-save` is not set)
+- Data file: `{workflow_name}_workflow_data.csv` (the input, preserved in `analysis_data/`).
+- Results (JSON): `workflow_spm_results/{workflow_name}_WFG.json` (intermediate graph with timings).
+- Reports (TXT):
+  - `workflow_spm_results/{workflow_name}_spm.txt` (top-ranked storage configurations)
+  - `workflow_spm_results/{workflow_name}_io_breakdown.txt` (I/O time breakdown)
+
+Examples
 ```bash
-# Analyze workflow from CSV file (workflow name auto-extracted from filename)
 python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv
-
-# Specify workflow name explicitly
 python3 workflow_analyzer.py analysis_data/workflow_data.csv --workflow ddmd_4n_l
-
-# Use different IOR data path
-python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --ior-data path/to/ior_data.csv
-
-# Run analysis without saving results to files (for testing)
+python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --ior-data /path/to/custom_ior_benchmarks.csv
 python3 workflow_analyzer.py analysis_data/ddmd_4n_l_workflow_data.csv --no-save
 ```
 
-#### Command Line Arguments
-| Argument | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `csv_file` | Path to the CSV file containing workflow data | - | Yes |
-| `--workflow, -w` | Workflow name (auto-extracted from filename if not provided) | None | No |
-| `--ior-data, -i` | Path to IOR benchmark data CSV file | `../perf_profiles/updated_master_ior_df.csv` | No |
-| `--no-save` | Do not save results to files (for testing/debugging) | False | No |
-| `--help, -h` | Show help message | - | No |
-
-#### Analysis Steps
-See [`workflow_analyzer.py:29`](workflow_analyzer.py#L29) for the complete analysis pipeline:
-
-1. **Data Loading**: Loads workflow data from CSV file and creates a working copy
-2. **I/O Time Breakdown**: Calculates I/O time breakdown for each task
-3. **Data Staging**: Inserts data staging rows for workflow transitions
-4. **Aggregate File Size**: Calculates aggregate file size per node
-5. **Transfer Rate Estimation**: Estimates transfer rates using IOR benchmark data
-6. **SPM Calculation**: Calculates Storage Performance Matching values
-7. **Storage Filtering**: Filters storage options based on workflow configuration
-8. **Best Configuration Selection**: Identifies optimal storage and parallelism settings
-9. **Results Export**: Saves analysis results to various output files
+Analysis Steps (high-level)
+1. Load CSV and create working copy
+2. Compute I/O time breakdown per task
+3. Insert data staging rows for transitions
+4. Compute aggregate file size per node
+5. Estimate transfer rates using IOR benchmark data (including cp/scp for transitions)
+6. Compute SPM and rank storage/parallelism
+7. Filter storage options by workflow config
+8. Select best configuration and export results
 
 ### Advanced Usage Examples
 
@@ -417,7 +383,35 @@ The scripts are designed to work seamlessly with:
 - **Custom scripts**: JSON results can be parsed for custom processing
 - **Visualization tools**: Output data can be used for plotting and charts
 
-See [`workflow_spm_calculator.py:1010-1067`](modules/workflow_spm_calculator.py#L1010-L1067) for JSON data structure details.
+See `modules/workflow_spm_calculator.py` for JSON data structure details.
+
+## ➕ Adding a New Workflow
+
+Follow these steps to make a new workflow usable by both `workflow_data_loader.py` and `workflow_analyzer.py`:
+
+1) Define the workflow in configuration
+- Edit `modules/workflow_config.py` and add an entry for your workflow name. At minimum, specify:
+  - Allowed storage types to consider
+  - Parallelism bounds or defaults
+  - Any staging policy or special handling
+
+2) Provide workflow source data
+- Ensure the raw workflow JSON statistics/files expected by your loader utilities exist in the locations `modules/workflow_data_utils.py` reads from (use `template_workflow/` as a guide if unsure).
+
+3) Generate the CSV
+```bash
+python3 workflow_data_loader.py --workflow <your_workflow_name>
+```
+This produces `analysis_data/<your_workflow_name>_workflow_data.csv` by default.
+
+4) Run the analysis
+```bash
+python3 workflow_analyzer.py analysis_data/<your_workflow_name>_workflow_data.csv
+```
+
+Tips
+- Start from `template_workflow/` to mirror expected shapes of inputs.
+- If you add new operation types or storage transitions, update interpolation and configuration as needed in `modules/`.
 
 ## 🚧 Development Status
 
