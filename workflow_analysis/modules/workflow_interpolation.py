@@ -672,7 +672,11 @@ def calculate_aggregate_filesize_per_node(wf_df: pd.DataFrame, debug: bool = Fal
                 print(f"  Found {found_files}/{len(unique_files)} files in dictionary")
                 print(f"  Total size: {total_size}")
             
+            # For cp, scp, and none operations: Use total_size as base aggregate value
             aggregate_value = total_size
+            
+            if debug:
+                print(f"  Base aggregate value: {aggregate_value}")
         
         else:
             # For other operations, use sum
@@ -686,11 +690,36 @@ def calculate_aggregate_filesize_per_node(wf_df: pd.DataFrame, debug: bool = Fal
         if debug:
             print(f"  Final aggregateFilesizeMB for {task_name} - {operation}: {aggregate_value}")
     
+    # Step 4: Multiply aggregateFilesizeMB by numNodes for cp and scp operations only
+    if debug:
+        print(f"\n=== Multiplying by numNodes for cp and scp operations ===")
+    
+    cp_scp_mask = result_df['operation'].isin(['cp', 'scp'])
+    cp_scp_rows = result_df[cp_scp_mask]
+    
+    if debug:
+        print(f"Found {len(cp_scp_rows)} rows with cp/scp operations")
+        if len(cp_scp_rows) > 0:
+            print(f"Sample cp/scp rows before multiplication:")
+            sample_cp_scp = cp_scp_rows[['taskName', 'operation', 'aggregateFilesizeMB', 'numNodes']].head(5)
+            print(sample_cp_scp.to_string())
+    
+    # Multiply aggregateFilesizeMB by numNodes for cp and scp operations
+    result_df.loc[cp_scp_mask, 'aggregateFilesizeMB'] = (
+        result_df.loc[cp_scp_mask, 'aggregateFilesizeMB'] * result_df.loc[cp_scp_mask, 'numNodes']
+    )
+    
+    if debug:
+        if len(cp_scp_rows) > 0:
+            print(f"Sample cp/scp rows after multiplication:")
+            sample_cp_scp_after = result_df[cp_scp_mask][['taskName', 'operation', 'aggregateFilesizeMB', 'numNodes']].head(5)
+            print(sample_cp_scp_after.to_string())
+    
     if debug:
         print(f"\n=== Summary ===")
         print(f"Updated {len(result_df)} rows with aggregateFilesizeMB values")
         print(f"Sample results:")
-        sample_results = result_df[['taskName', 'operation', 'aggregateFilesizeMB']].head(10)
+        sample_results = result_df[['taskName', 'operation', 'aggregateFilesizeMB', 'numNodes']].head(10)
         print(sample_results.to_string())
     
-    return result_df 
+    return result_df

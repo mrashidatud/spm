@@ -34,7 +34,7 @@ def setup_plotting():
     sns.set_palette("husl")
     
     # Create plot directory if it doesn't exist
-    plot_dir = "plot"
+    plot_dir = "ior_plots"
     if not os.path.exists(plot_dir):
         os.makedirs(plot_dir)
         print(f"Created plot directory: {plot_dir}")
@@ -111,7 +111,7 @@ def storage_comparison_analysis(df: pd.DataFrame, plot_dir: str):
         transfer_size=transfer_size_bytes,
         num_nodes=num_nodes,
         title=f'Storage Performance Comparison - {transfer_size_mb}MB Transfer, {num_nodes} Node(s), {aggregate_file_size_mb}MB File',
-        save_path=os.path.join(plot_dir, f'storage_comparison_{transfer_size_mb}mb_{num_nodes}node_{aggregate_file_size_mb}mbfile.png'),
+        save_path=os.path.join(plot_dir, f'storage_comparison_{transfer_size_mb}mb_{num_nodes}node_{aggregate_file_size_mb}mbfile.pdf'),
         aggregate_file_size=aggregate_file_size_mb
     )
     
@@ -154,7 +154,7 @@ def storage_comparison_analysis(df: pd.DataFrame, plot_dir: str):
                          ha='center', va='center', transform=axes[i].transAxes)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_dir, 'storage_comparison_multiple_transfer_sizes.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(plot_dir, 'storage_comparison_multiple_transfer_sizes.pdf'), bbox_inches='tight')
     plt.show()
 
 def transfer_size_analysis(df: pd.DataFrame, plot_dir: str):
@@ -204,7 +204,7 @@ def transfer_size_analysis(df: pd.DataFrame, plot_dir: str):
                              ha='center', va='center', transform=axes[i].transAxes)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_dir, 'transfer_size_analysis_all_storage.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(plot_dir, 'transfer_size_analysis_all_storage.pdf'), bbox_inches='tight')
     plt.show()
     
     # Detailed analysis for a specific storage type
@@ -217,7 +217,7 @@ def transfer_size_analysis(df: pd.DataFrame, plot_dir: str):
                                storage_type=storage_type, 
                                num_nodes=num_nodes,
                                title=f'Transfer Size Analysis - {storage_type.upper()}, {num_nodes} Node(s)',
-                               save_path=os.path.join(plot_dir, f'transfer_size_analysis_{storage_type}.png'))
+                               save_path=os.path.join(plot_dir, f'transfer_size_analysis_{storage_type}.pdf'))
 
 def scaling_analysis(df: pd.DataFrame, plot_dir: str):
     """Perform scaling analysis across different numbers of nodes."""
@@ -266,7 +266,7 @@ def scaling_analysis(df: pd.DataFrame, plot_dir: str):
                         ha='center', va='center', transform=ax.transAxes)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_dir, 'scaling_analysis_all_storage.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(plot_dir, 'scaling_analysis_all_storage.pdf'), bbox_inches='tight')
     plt.show()
 
 def summary_statistics_analysis(df: pd.DataFrame, plot_dir: str):
@@ -294,7 +294,7 @@ def summary_statistics_analysis(df: pd.DataFrame, plot_dir: str):
         sns.heatmap(pivot_data, annot=True, fmt='.0f', cmap='YlOrRd', cbar_kws={'label': 'Average Throughput (MiB/s)'})
         plt.title('Average Throughput by Storage Type and Operation')
         plt.tight_layout()
-        plt.savefig(os.path.join(plot_dir, 'throughput_heatmap.png'), dpi=300, bbox_inches='tight')
+        plt.savefig(os.path.join(plot_dir, 'throughput_heatmap.pdf'), bbox_inches='tight')
         plt.show()
     
     return summary_stats
@@ -353,8 +353,8 @@ def analyze_specific_conditions(df: pd.DataFrame, storage_type: str, transfer_si
     ax2.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(os.path.join(plot_dir, f'detailed_analysis_{storage_type}_{transfer_size_mb}mb_{num_nodes}nodes.png'), 
-                dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(plot_dir, f'detailed_analysis_{storage_type}_{transfer_size_mb}mb_{num_nodes}nodes.pdf'), 
+                bbox_inches='tight')
     plt.show()
     
     # Print statistics
