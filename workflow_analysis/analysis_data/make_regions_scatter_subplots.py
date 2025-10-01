@@ -1,121 +1,144 @@
 #!/usr/bin/env python3
+"""
+Scatter subplots by node scale using workflow_rowwise_sensitivities.csv
+
+- Uses sensitivities file (with explicit per-row `region`, `nodes`, and *_stor).
+- Joins to workflow_makespan_stageorder.csv via the intersection of *_stor columns
+  to get the true `total` per configuration.
+- For each node scale (2, 5, 10 if present):
+    * Sort configurations by ascending total.
+    * X-axis: configuration index (1..N), show every 10th tick (minor ticks at 1).
+    * Y-axis: total (shared across all subplots for easy comparison).
+    * Color points by **region** with a color order that follows the **numeric
+      order of region IDs** (0,1,2,...,10,11,...) — not lexicographic.
+
+Outputs
+-------
+- Figure: ./sens_out/regions_scatter_true_labels.png
+"""
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
+from typing import List, Any
 
-regions_path = "./sens_out/regions_by_total.csv"          # path to regions CSV
-configs_path = "./1kgenome/workflow_makespan_stageorder.csv"  # path to full configs CSV
-out_png = "./sens_out/regions_scatter_true_labels.png"
-out_map = "./sens_out/regions_scatter_index_mapping.csv"
+# --------- Paths ---------
+SENS_CSV    = "./sens_out/workflow_rowwise_sensitivities.csv"
+CONFIGS_CSV = "./pyflxtrkr/pyflex_s9_48f/workflow_makespan_stageorder.csv"
+OUT_PNG     = "./sens_out/regions_scatter_true_labels.png"
 
-region_col = "region"
-nodes_col_r = "nodes"
-total_col_c = "total"
-nodes_col_c = "nodes"
+REGION_COL = "region"
+NODES_COL  = "nodes"
+TOTAL_COL  = "total"
 
-# --- Load ---
-rdf = pd.read_csv(regions_path)
-cdf = pd.read_csv(configs_path)
+# --------- Helpers ---------
+def _norm_str(s: pd.Series) -> pd.Series:
+    """Normalize string-ish columns for reliable joining."""
+    return s.astype(str).str.strip().str.lower()
 
-# --- Find overlapping *_stor columns to match on ---
-stor_cols_r = sorted([c for c in rdf.columns if c.endswith("_stor")])
-stor_cols_c = sorted([c for c in cdf.columns if c.endswith("_stor")])
-stor_cols = [c for c in stor_cols_r if c in stor_cols_c]
-if not stor_cols:
-    raise ValueError("No overlapping '*_stor' columns between the two CSVs to map regions to configurations.")
-
-# --- Build human-readable configuration label in the configs CSV ---
-def make_config_label(row):
+def build_config_label(df: pd.DataFrame, stor_cols: List[str]) -> pd.Series:
+    """Create a stable configuration label from *_stor columns (normalized)."""
     parts = []
-    for c in sorted(stor_cols_c):
-        parts.append(f"{c[:-5]}:{row[c]}")
-    return " | ".join(parts)
+    for c in sorted(stor_cols):
+        base = c[:-5]  # drop '_stor'
+        vals = _norm_str(df[c])
+        parts.append(vals.map(lambda v: f"{base}:{v}"))
+    return pd.Series([" | ".join(vals) for vals in zip(*parts)], index=df.index)
 
+def series_mode(s: pd.Series):
+    """Return the first mode if multiple."""
+    m = s.mode(dropna=False)
+    return m.iloc[0] if not m.empty else np.nan
+
+def _region_sort_key(x: Any):
+    """Sort key that prefers numeric ordering when possible."""
+    try:
+        return (0, float(x))  # numeric first, ascending
+    except Exception:
+        return (1, str(x))    # then non-numeric, lexicographic
+
+# --------- Load ---------
+sdf = pd.read_csv(SENS_CSV)     # must contain region, nodes, *_stor columns
+cdf = pd.read_csv(CONFIGS_CSV)  # must contain nodes, *_stor columns, total
+
+# Identify overlapping *_stor columns to build a common configuration key
+stor_cols_sens = sorted([c for c in sdf.columns if c.endswith("_stor")])
+stor_cols_cfg  = sorted([c for c in cdf.columns if c.endswith("_stor")])
+stor_cols_join = [c for c in stor_cols_sens if c in stor_cols_cfg]
+if not stor_cols_join:
+    raise ValueError("No overlapping '*_stor' columns between sensitivities and configs to build configuration key.")
+
+# Normalize *_stor columns before building labels
+for c in stor_cols_join:
+    sdf[c] = _norm_str(sdf[c])
+    cdf[c] = _norm_str(cdf[c])
+
+# Build configuration labels and align node types
+sdf = sdf.copy()
 cdf = cdf.copy()
-cdf["configuration"] = cdf.apply(make_config_label, axis=1)
-cdf[nodes_col_c] = cdf[nodes_col_c].astype(int)
+sdf["configuration"] = build_config_label(sdf, stor_cols_join)
+cdf["configuration"] = build_config_label(cdf, stor_cols_join)
 
-# --- Parse possible multi-valued 'nodes' entries like '5,10' in regions CSV ---
-def parse_nodes(val):
-    s = str(val)
-    parts = [p.strip() for p in s.replace(";", ",").split(",") if p.strip()]
-    out = []
-    for p in parts:
-        try:
-            out.append(int(p))
-        except:
-            pass
-    return out if out else [np.nan]
+sdf[NODES_COL] = pd.to_numeric(sdf[NODES_COL], errors="coerce").astype("Int64")
+cdf[NODES_COL] = pd.to_numeric(cdf[NODES_COL], errors="coerce").astype("Int64")
+cdf[TOTAL_COL] = pd.to_numeric(cdf.get(TOTAL_COL, np.nan), errors="coerce")
 
-rdf = rdf.copy()
-rdf["nodes_list"] = rdf[nodes_col_r].apply(parse_nodes)
-rdf = rdf.explode("nodes_list", ignore_index=True)
-rdf = rdf.dropna(subset=["nodes_list"])
-rdf["nodes_list"] = rdf["nodes_list"].astype(int)
-rdf[nodes_col_r] = rdf["nodes_list"]
-rdf = rdf.drop(columns=["nodes_list"])
+# --- Join to get region + total per (nodes, configuration) ---
+joined = pd.merge(
+    sdf[[REGION_COL, NODES_COL, "configuration"]],
+    cdf[[NODES_COL, "configuration", TOTAL_COL]],
+    on=[NODES_COL, "configuration"],
+    how="inner"
+)
 
-# --- node scales to plot ---
-desired_scales = [2, 5, 10]
-scales_present = [s for s in desired_scales if s in cdf[nodes_col_c].unique() and s in rdf[nodes_col_r].unique()]
+# --- Aggregate per configuration (keep a single region label per config via mode) ---
+joined_agg = (
+    joined
+    .groupby([NODES_COL, "configuration"], as_index=False)
+    .agg(
+        total_mean=(TOTAL_COL, "mean"),
+        region=(REGION_COL, series_mode)
+    )
+)
+joined_agg.rename(columns={"total_mean": TOTAL_COL}, inplace=True)
+
+# --- Node scales to plot ---
+desired_scales = [2, 4, 8]
+scales_present = [s for s in desired_scales if s in joined_agg[NODES_COL].dropna().unique().tolist()]
 if not scales_present:
-    scales_present = sorted(set(cdf[nodes_col_c].unique()).intersection(set(rdf[nodes_col_r].unique())))
+    scales_present = sorted(joined_agg[NODES_COL].dropna().unique().tolist())
 
-# --- helper: interpret region stor entries with wildcards (*) and comma-separated choices ---
-def allowed_set(val):
-    s = str(val).strip()
-    if s == "*" or s.lower() == "any":
-        return None  # wildcard: accept any value
-    opts = [p.strip() for p in s.split(",") if p.strip()]
-    return set(opts) if opts else None
-
-# --- Build per-scale points by mapping each region to matching configurations, then reading true totals ---
+# --- Build per-scale, sorted datasets and global Y range ---
 per_scale_points = {}
+all_totals = []
+
 for s in scales_present:
-    rdf_s = rdf[rdf[nodes_col_r] == s]
-    cdf_s = cdf[cdf[nodes_col_c] == s]
+    df_s = joined_agg[joined_agg[NODES_COL] == s].copy()
+    df_s = df_s.sort_values(TOTAL_COL, ascending=True).reset_index(drop=True)
+    per_scale_points[s] = df_s
+    all_totals.extend(df_s[TOTAL_COL].tolist())
 
-    rows = []
-    for _, r in rdf_s.iterrows():
-        allow_map = {c: allowed_set(r[c]) for c in stor_cols}
-        mask = np.ones(len(cdf_s), dtype=bool)
-        for c in stor_cols:
-            if allow_map[c] is None:
-                continue
-            mask &= cdf_s[c].isin(allow_map[c])
-        matches = cdf_s[mask]
-        if matches.empty:
-            continue
-        g = matches.groupby("configuration", as_index=False)[total_col_c].mean()
-        g[region_col] = r[region_col]
-        rows.append(g)
+if not all_totals:
+    raise ValueError("No totals available after joining sensitivities with configs.")
 
-    points = pd.concat(rows, ignore_index=True) if rows else pd.DataFrame(columns=["configuration", total_col_c, region_col])
-    points = points.sort_values(total_col_c, ascending=True).reset_index(drop=True)
-    per_scale_points[s] = points
-
-# --- Shared Y range ---
-all_vals = []
-for s, dfp in per_scale_points.items():
-    all_vals.extend(dfp[total_col_c].tolist())
-if not all_vals:
-    raise ValueError("No matching configuration totals found when mapping regions to configurations.")
-
-ymin = float(np.nanmin(all_vals))
-ymax = float(np.nanmax(all_vals))
+ymin = float(np.nanmin(all_totals))
+ymax = float(np.nanmax(all_totals))
 yrange = ymax - ymin if ymax > ymin else (abs(ymax) if ymax != 0 else 1.0)
 pad = 0.08 * yrange
 ymin_plot = ymin - pad
 ymax_plot = ymax + pad
 
-# --- Region label → numeric code for colormap; will display true labels on colorbar ---
-all_region_labels = sorted(pd.unique(rdf[region_col].astype(str)))
-region_to_code = {r:i for i, r in enumerate(all_region_labels)}
-code_to_region = {i:r for r,i in region_to_code.items()}
+# --- Build a numeric-ordered region→code mapping for consistent colors across subplots ---
+all_regions = pd.unique(joined_agg[REGION_COL])
+region_order = sorted(all_regions, key=_region_sort_key)   # numeric order if possible
+region_to_code = {r: i for i, r in enumerate(region_order)}
+code_to_region = {i: r for i, r in enumerate(region_order)}
+# Use a fixed normalization so colorbar covers the full region set regardless of subplot contents
+norm = plt.Normalize(vmin=0, vmax=len(region_order) - 1)
 
 # --- Figure ---
-fig, axes = plt.subplots(1, len(scales_present), figsize=(5.8*len(scales_present), 4.9), sharey=True)
+fig, axes = plt.subplots(1, len(scales_present), figsize=(5.8 * len(scales_present), 4.9), sharey=True)
 if len(scales_present) == 1:
     axes = [axes]
 
@@ -128,39 +151,30 @@ for ax, s in zip(axes, scales_present):
         continue
 
     x = np.arange(1, len(dfp) + 1)
-    y = dfp[total_col_c].values
-    r_codes = dfp[region_col].astype(str).map(region_to_code).values
-    last_sc = ax.scatter(x, y, c=r_codes, s=28)  # let matplotlib pick colormap
+    y = dfp[TOTAL_COL].values
+    r_codes = dfp[REGION_COL].map(region_to_code).values
 
-    ax.xaxis.set_major_locator(MultipleLocator(10))   # show every 10th config index
-    ax.xaxis.set_minor_locator(MultipleLocator(1))    # unlabeled minor ticks
+    last_sc = ax.scatter(x, y, c=r_codes, s=28, norm=norm, cmap="viridis")
+    ax.xaxis.set_major_locator(MultipleLocator(500))
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+
     ax.set_ylim(ymin_plot, ymax_plot)
     ax.set_title(f"Nodes = {s}")
     ax.grid(axis="y", linestyle="--", alpha=0.5)
 
+# Axis labels
 axes[0].set_ylabel("Total cost")
 fig.supxlabel("Configuration index (ascending per subplot)")
 
-# True region labels on colorbar
+# Colorbar with true region labels, in numeric order
 cbar = fig.colorbar(last_sc, ax=axes, orientation="vertical", fraction=0.035, pad=0.02)
 cbar.set_ticks(list(code_to_region.keys()))
-cbar.set_ticklabels([code_to_region[k] for k in code_to_region.keys()])
+cbar.set_ticklabels([str(code_to_region[k]) for k in code_to_region.keys()])
 cbar.set_label("Region")
 
-# No tight_layout; adjust manually
+# Manual spacing (no tight_layout)
 fig.subplots_adjust(wspace=0.18, left=0.07, right=0.86, bottom=0.12, top=0.90)
 
-fig.savefig(out_png, dpi=200, bbox_inches="tight")
-
-# Save per-subplot mapping for traceability
-summary_rows = []
-for s in scales_present:
-    dfp = per_scale_points[s].copy()
-    dfp.insert(0, "index_in_subplot", np.arange(1, len(dfp)+1))
-    dfp.insert(1, "nodes", s)
-    summary_rows.append(dfp.rename(columns={total_col_c: "total"}))
-summary = pd.concat(summary_rows, ignore_index=True)
-summary.to_csv(out_map, index=False)
-
-print("Saved figure:", out_png)
-print("Saved mapping:", out_map)
+# --- Save figure ---
+fig.savefig(OUT_PNG, dpi=200, bbox_inches="tight")
+print("Saved figure:", OUT_PNG)
