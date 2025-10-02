@@ -25,7 +25,7 @@ from typing import List, Any
 
 # --------- Paths ---------
 SENS_CSV    = "./sens_out/workflow_rowwise_sensitivities.csv"
-CONFIGS_CSV = "./pyflxtrkr/pyflex_s9_48f/workflow_makespan_stageorder.csv"
+CONFIGS_CSV = "./ddmd/workflow_makespan_stageorder.csv"
 OUT_PNG     = "./sens_out/regions_scatter_true_labels.png"
 
 REGION_COL = "region"
@@ -104,7 +104,7 @@ joined_agg = (
 joined_agg.rename(columns={"total_mean": TOTAL_COL}, inplace=True)
 
 # --- Node scales to plot ---
-desired_scales = [2, 4, 8]
+desired_scales = [1, 2, 4]
 scales_present = [s for s in desired_scales if s in joined_agg[NODES_COL].dropna().unique().tolist()]
 if not scales_present:
     scales_present = sorted(joined_agg[NODES_COL].dropna().unique().tolist())
@@ -155,7 +155,7 @@ for ax, s in zip(axes, scales_present):
     r_codes = dfp[REGION_COL].map(region_to_code).values
 
     last_sc = ax.scatter(x, y, c=r_codes, s=28, norm=norm, cmap="viridis")
-    ax.xaxis.set_major_locator(MultipleLocator(500))
+    ax.xaxis.set_major_locator(MultipleLocator(5))
     ax.xaxis.set_minor_locator(MultipleLocator(1))
 
     ax.set_ylim(ymin_plot, ymax_plot)

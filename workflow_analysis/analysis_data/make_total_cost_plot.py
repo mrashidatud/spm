@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.ticker import MultipleLocator   # <-- added
 
-csv_path = "./pyflxtrkr/pyflex_s9_48f/workflow_makespan_stageorder.csv"
-desired_scales = [2, 4, 8]
-out_png = "./pyflxtrkr/pyflex_s9_48f/total_cost_comparison_subplots_numbers.png"
-mapping_csv = "./pyflxtrkr/pyflex_s9_48f/config_number_mapping.csv"
+csv_path = "./ddmd/workflow_makespan_stageorder.csv"
+desired_scales = [1, 2, 4]
+out_png = "./ddmd/total_cost_comparison_subplots_numbers.png"
+mapping_csv = "./ddmd/config_number_mapping.csv"
 
 df = pd.read_csv(csv_path)
 nodes_col = "nodes"
@@ -68,7 +68,7 @@ for ax, s in zip(axes, scales_present):
     x = np.arange(1, len(config_order)+1)
     ax.bar(x, vals.values)
     # show major tick every 10th configuration number
-    ax.xaxis.set_major_locator(MultipleLocator(500))
+    ax.xaxis.set_major_locator(MultipleLocator(5))
     # optional: minor ticks for all bars (unlabeled)
     ax.xaxis.set_minor_locator(MultipleLocator(1))
     ax.set_title(f"Nodes = {s}")

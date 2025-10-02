@@ -42,11 +42,11 @@ from typing import List, Dict
 
 # --------- Paths ---------
 SENS_CSV    = "./sens_out/workflow_rowwise_sensitivities.csv"
-CONFIGS_CSV = "./pyflxtrkr/pyflex_s9_48f/workflow_makespan_stageorder.csv"
+CONFIGS_CSV = "./ddmd/workflow_makespan_stageorder.csv"
 OUT_PNG     = "./sens_out/region_share_stacked_with_makespan_from_sensitivities.png"
 
 # --------- Node scales to show ---------
-DESIRED_SCALES = [2, 4, 8]
+DESIRED_SCALES = [1, 2, 4]
 
 # --------- Colors (high contrast) ---------
 COLOR_SHARED = "#1f77b4"  # blue
