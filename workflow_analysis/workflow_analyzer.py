@@ -10,6 +10,7 @@ import os
 import sys
 import argparse
 from typing import Dict, Any
+import time
 
 # Import our modules
 from modules.workflow_config import DEFAULT_WF, TEST_CONFIGS, STORAGE_LIST
@@ -17,6 +18,11 @@ from modules.workflow_data_utils import calculate_io_time_breakdown
 from modules.workflow_interpolation import (
     estimate_transfer_rates_for_workflow, calculate_aggregate_filesize_per_node
 )
+
+# from modules.workflow_randomforest import (
+#     estimate_transfer_rates_for_workflow, calculate_aggregate_filesize_per_node
+# )
+
 from modules.workflow_spm_calculator import (
     calculate_spm_for_edges, calculate_spm_from_wfg, filter_storage_options,
     select_best_storage_and_parallelism, display_top_sorted_averaged_rank,
@@ -30,7 +36,8 @@ from modules.workflow_data_staging import insert_data_staging_rows
 def analyze_workflow_from_csv(csv_file_path: str,
                              workflow_name: str = None,
                              ior_data_path: str = "../perf_profiles/updated_master_ior_df.csv",
-                             save_results: bool = True) -> Dict[str, Any]:
+                             save_results: bool = True,
+                             save_json: bool = False) -> Dict[str, Any]:
     """
     Run the complete workflow analysis pipeline from a CSV file.
     
@@ -38,7 +45,8 @@ def analyze_workflow_from_csv(csv_file_path: str,
     - csv_file_path: Path to the CSV file containing workflow data
     - workflow_name: Name of the workflow (if not specified, will be inferred from filename)
     - ior_data_path: Path to the IOR benchmark data
-    - save_results: Whether to save results to files
+    - save_results: Whether to save results to CSV files
+    - save_json: Whether to save results to JSON files (default: False)
     
     Returns:
     - Dict: Analysis results
@@ -147,6 +155,7 @@ def analyze_workflow_from_csv(csv_file_path: str,
         print(f"   Loaded {len(df_ior)} IOR benchmark records")
     
     # Step 5: Estimate transfer rates
+    start_time = time.time()
     if not df_ior.empty:
         print("\n5. Estimating transfer rates...")
         # Get allowed_parallelism from config, with fallback to default
@@ -162,17 +171,30 @@ def analyze_workflow_from_csv(csv_file_path: str,
         print("   Transfer rate estimation completed")
     else:
         print("\n5. Skipping transfer rate estimation (no IOR data)")
-    
+    end_time = time.time()
+    # Print both the number of rows in the dataframe and the time taken
+    print(f"   Number of rows in the dataframe: {len(wf_df)}")
+    print(f"   Time taken to estimate transfer rates: {end_time - start_time} seconds")
+
     # Step 6: Build workflow graph and add edges
     print("\n6. Building workflow graph and adding edges...")
+    # add timmer to track performance
+    start_time = time.time()
     wfg_graph = calculate_spm_for_edges(wf_df, debug=False, workflow_name=workflow_name)
+    end_time = time.time()
+    # output the number of edges in the graph and the time taken
+    print(f"   Number of edges in the graph: {len(wfg_graph.edges())}")
+    print(f"   Time taken to build workflow graph and add edges: {end_time - start_time} seconds")
     print(f"   Built workflow graph and added edges")
     
     # Step 6.5: Calculate SPM values from the built graph
     print("\n6.5. Calculating SPM values from workflow graph...")
+    start_time = time.time()
     # Note: This step has its own debug option separate from graph building
     spm_results = calculate_spm_from_wfg(wfg_graph, debug=False)  # Set to False by default, can be controlled separately
     print(f"   Calculated SPM for {len(spm_results)} producer-consumer pairs")
+    end_time = time.time()
+    print(f"   Time taken to calculate SPM values from workflow graph: {end_time - start_time} seconds")
     
     # Debug: Check SPM results structure
     if spm_results:
@@ -198,7 +220,7 @@ def analyze_workflow_from_csv(csv_file_path: str,
     
     # Step 9: Display top results
     print("\n9. Displaying top results...")
-    display_top_sorted_averaged_rank(spm_results, top_n=200)
+    display_top_sorted_averaged_rank(spm_results, top_n=5)
     
     # Step 10: Generate visualizations (currently not working, skipping)
     print("\n10. Generating visualizations...")
@@ -218,33 +240,35 @@ def analyze_workflow_from_csv(csv_file_path: str,
         results_df.to_csv(csv_path, index=False)
         print(f"✓ Saved to: {csv_path}")
     
-    # Step 12: Save additional results
-    if save_results:
-        print("\n12. Saving additional results...")
-        os.makedirs("./analysis_data", exist_ok=True)
+    # # Step 12: Save additional results
+    # if save_results or save_json:
+    #     print("\n12. Saving additional results...")
+    #     os.makedirs("./analysis_data", exist_ok=True)
         
-        # Save workflow DataFrame (with different name to avoid overwriting input)
-        wf_df.to_csv(f'./analysis_data/{workflow_name}_processed_workflow_data.csv', index=False)
-        print(f"   Saved processed workflow data to: ./analysis_data/{workflow_name}_processed_workflow_data.csv")
+    #     # Save workflow DataFrame (with different name to avoid overwriting input)
+    #     if save_results:
+    #         wf_df.to_csv(f'./analysis_data/{workflow_name}_processed_workflow_data.csv', index=False)
+    #         print(f"   Saved processed workflow data to: ./analysis_data/{workflow_name}_processed_workflow_data.csv")
         
-        # Save SPM results
-        import json
-        with open(f'./analysis_data/{workflow_name}_spm_results.json', 'w') as f:
-            # Convert numpy types to native Python types for JSON serialization
-            def convert_numpy(obj):
-                if isinstance(obj, np.integer):
-                    return int(obj)
-                elif isinstance(obj, np.floating):
-                    return float(obj)
-                elif isinstance(obj, np.ndarray):
-                    return obj.tolist()
-                return obj
-            
-            json.dump(spm_results, f, default=convert_numpy, indent=2)
-        print(f"   Saved SPM results to: ./analysis_data/{workflow_name}_spm_results.json")
+    #     # Save SPM results to JSON (only if save_json is True)
+    #     if save_json:
+    #         import json
+    #         with open(f'./analysis_data/{workflow_name}_spm_results.json', 'w') as f:
+    #             # Convert numpy types to native Python types for JSON serialization
+    #             def convert_numpy(obj):
+    #                 if isinstance(obj, np.integer):
+    #                     return int(obj)
+    #                 elif isinstance(obj, np.floating):
+    #                     return float(obj)
+    #                 elif isinstance(obj, np.ndarray):
+    #                     return obj.tolist()
+    #                 return obj
+                
+    #             json.dump(spm_results, f, default=convert_numpy, indent=2)
+    #         print(f"   Saved SPM results to: ./analysis_data/{workflow_name}_spm_results.json")
     
-    print("\n" + "=" * 60)
-    print("Workflow analysis completed successfully!")
+    # print("\n" + "=" * 60)
+    # print("Workflow analysis completed successfully!")
     
     # Return results
     return {
@@ -267,7 +291,9 @@ def main():
                        default="../perf_profiles/updated_master_ior_df.csv",
                        help='Path to IOR benchmark data CSV file')
     parser.add_argument('--no-save', action='store_true',
-                       help='Do not save results to files')
+                       help='Do not save results to CSV files')
+    parser.add_argument('--save-json', action='store_true',
+                       help='Save SPM results to JSON file')
     
     args = parser.parse_args()
     
@@ -276,7 +302,8 @@ def main():
         csv_file_path=args.csv_file,
         workflow_name=args.workflow,
         ior_data_path=args.ior_data,
-        save_results=not args.no_save
+        save_results=not args.no_save,
+        save_json=args.save_json
     )
     
     print(f"\nCompleted analysis of workflow from: {args.csv_file}")
